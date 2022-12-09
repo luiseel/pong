@@ -1,3 +1,3 @@
 # Pong
 
-Pong game written in C using SDL2
+Pong game written in C using SDL2.
