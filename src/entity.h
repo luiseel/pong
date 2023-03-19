@@ -1,7 +1,7 @@
 #ifndef ENTITY_H
 #define ENTITY_H
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include "game_settings.h"
 #include "utils.h"
 #include "vector.h"

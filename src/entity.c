@@ -1,7 +1,7 @@
 #include "entity.h"
 
 void update_ball(ball_t *ball, float delta_time) {
-    float const speed = 16.f;
+    float const speed = 40.f;
 
     if (ball->position.x < 0.f) {
         ball->velocity.x = 1.f;
@@ -22,7 +22,7 @@ void update_ball(ball_t *ball, float delta_time) {
 }
 
 void update_player_one_pad(pad_t *pad, float delta_time) {
-    float const speed = 16.f;
+    float const speed = 32.f;
     vector_2d_t velocity = pad->velocity;
     multiply_vector_by_scalar(&velocity, delta_time * speed);
     add_vectors(&pad->position, pad->position, velocity);

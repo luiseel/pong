@@ -1,11 +1,12 @@
 CC = gcc
 CFLAGS = -std=c99 -Wall -g
 
-pong: bin
-	$(CC) $(CFLAGS) -o bin/pong -I/usr/local/include/SDL2 -L/usr/local/lib -lSDL2 -lSDL2_ttf src/*.c
+bin/pong: bin
+	$(CC) $(CFLAGS) -o bin/pong -F/Library/Frameworks -framework SDL2 -framework SDL2_ttf src/*.c
 
 bin:
 	mkdir bin
 
+.PHONY: clean
 clean:
 	rm -rf bin

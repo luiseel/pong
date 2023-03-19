@@ -127,7 +127,7 @@ int run_game(game_t *game) {
     while (game->is_running) {
         last_time = current_time;
         current_time = SDL_GetTicks();
-        delta_time = (current_time - last_time) / 100.f;
+        delta_time = (current_time - last_time) / 1.f;
         if (delta_time > 0.16f) {
             delta_time = 0.16f;
         }
