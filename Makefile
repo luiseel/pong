@@ -1,12 +1,22 @@
 CC = gcc
-CFLAGS = -std=c99 -Wall -g
+CFLAGS = -Wall -Wextra -pedantic -std=c99
 
-bin/pong: bin
-	$(CC) $(CFLAGS) -o bin/pong -F/Library/Frameworks -framework SDL2 -framework SDL2_ttf src/*.c
+TARGET = game
+SRC_DIR = src
+BIN_DIR = bin
 
-bin:
-	mkdir bin
+SRCS = $(wildcard $(SRC_DIR)/*.c)
+OBJS = $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRCS))
 
-.PHONY: clean
+.PHONY: all clean
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -F/Library/Frameworks -framework SDL2 -framework SDL2_ttf -o $(BIN_DIR)/$@ $^
+
+$(BIN_DIR)/%.o: $(SRC_DIR)/%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 clean:
-	rm -rf bin
+	$(RM) $(BIN_DIR)/$(TARGET) $(OBJS)
