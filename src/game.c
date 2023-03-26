@@ -15,7 +15,7 @@ int init_game(game_t *game) {
     if (game->window == NULL) {
         return 1;
     }
-    game->renderer = SDL_CreateRenderer(game->window, -1, SDL_RENDERER_TARGETTEXTURE|SDL_RENDERER_PRESENTVSYNC);
+    game->renderer = SDL_CreateRenderer(game->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (game->renderer == NULL) {
         return 1;
     }
@@ -113,9 +113,14 @@ void render_game(game_t *game) {
 }
 
 int run_game(game_t *game) {
-    Uint32 last_time;
-    Uint32 current_time;
+    const int target_fps = 60;
+    const float target_frame_time = 1000.0f / target_fps;
+    Uint32 last_time, fps_last_time = SDL_GetTicks();
+    Uint32 current_time = SDL_GetTicks();
     float delta_time;
+    int frame_count = 0;
+    float fps = 0;
+
     if (init_game(game) != 0) {
         SDL_Log("Couldn't initialize game: %s", SDL_GetError());
         return 1;
@@ -124,21 +129,35 @@ int run_game(game_t *game) {
         SDL_Log("Couldn't initialize game text: %s", TTF_GetError());
         return 1;
     }
+
     while (game->is_running) {
         last_time = current_time;
         current_time = SDL_GetTicks();
-        delta_time = (current_time - last_time) / 16.f;
-        if (delta_time > 0.16f) {
-            delta_time = 0.16f;
+        delta_time = (current_time - last_time) / 1000.0f;
+
+        if (delta_time > target_frame_time) {
+            delta_time = target_frame_time;
         }
+
         handle_game_events(game);
         update_game(game, delta_time);
         render_game(game);
 
-        if (delta_time < 0.16f) {
-            SDL_Delay(0.16f - delta_time);
+        frame_count++;
+        Uint32 elapsed_time = SDL_GetTicks() - fps_last_time;
+        if (elapsed_time >= 1000) {
+            fps = (float) frame_count / elapsed_time * 1000.0f;
+            SDL_Log("FPS: %.2f", fps);
+            frame_count = 0;
+            fps_last_time = SDL_GetTicks();
+        }
+
+        Uint32 elapsed_time2 = SDL_GetTicks() - current_time;
+        if (elapsed_time2 < target_frame_time) {
+            SDL_Delay((Uint32)(target_frame_time - elapsed_time2));
         }
     }
+
     terminate_game_text(game);
     terminate_game(game);
     return 0;
