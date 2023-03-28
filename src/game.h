@@ -3,6 +3,7 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2_ttf/SDL_ttf.h>
+#include <SDL2_Mixer/SDL_Mixer.h>
 #include "entity.h"
 #include "game_settings.h"
 #include "utils.h"
@@ -19,12 +20,14 @@ typedef struct {
     TTF_Font *font;
     int player_one_score;
     int player_two_score; 
+    Mix_Chunk *hit_sound;
 } game_t;
 
 int init_game(game_t *);
 void terminate_game(game_t *);
 void handle_game_events(game_t *);
 void update_game(game_t *, float);
+void play_sounds(game_t *);
 void render_game(game_t *);
 int run_game(game_t *);
 

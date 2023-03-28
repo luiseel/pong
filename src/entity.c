@@ -59,11 +59,12 @@ void check_collisions(ball_t *ball, pad_t *pad) {
             && ((ball_y > pad_y && ball_y < pad_yh)
              || (ball_yh > pad_y && ball_yh < pad_yh))) {
         ball->velocity.x = 1.f;
-    }
-    if (ball_xw > pad_x && ball_xw < pad_xw
+        ball->has_collided = 1;
+    } else if (ball_xw > pad_x && ball_xw < pad_xw
             && ((ball_y > pad_y && ball_y < pad_yh)
             || (ball_yh > pad_y && ball_yh < pad_yh))) {
         ball->velocity.x = -1.f;
+        ball->has_collided = 1;
     }
 }
 

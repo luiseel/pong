@@ -12,6 +12,7 @@ typedef struct {
     vector_2d_t goal_velocity;
     int width;
     int height;
+    int has_collided;
 } entity_t;
 
 typedef entity_t ball_t;

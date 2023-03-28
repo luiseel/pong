@@ -1,10 +1,10 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -std=c99
 
-TARGET = game
+TARGET = pong
 SRC_DIR = src
 BIN_DIR = bin
-SDL2_FLAGS = -F/Library/Frameworks -framework SDL2 -framework SDL2_ttf
+SDL2_FLAGS = -F/Library/Frameworks -framework SDL2 -framework SDL2_ttf -framework SDL2_Mixer
 
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRCS))

@@ -1,9 +1,10 @@
 #include "game.h"
 
 int init_game(game_t *game) {
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         return 1;
     }
+
     game->window = SDL_CreateWindow(
         GAME_TITLE,
         SDL_WINDOWPOS_CENTERED,
@@ -17,6 +18,14 @@ int init_game(game_t *game) {
     }
     game->renderer = SDL_CreateRenderer(game->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (game->renderer == NULL) {
+        return 1;
+    }
+
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096) != 0) {
+        return 1;    
+    }
+    game->hit_sound = Mix_LoadWAV("src/assets/hit.wav");
+    if (game->hit_sound == NULL) {
         return 1;
     }
 
@@ -54,6 +63,8 @@ int init_game(game_t *game) {
 void terminate_game(game_t *game) {
     SDL_DestroyWindow(game->window);
     SDL_DestroyRenderer(game->renderer);
+    Mix_FreeChunk(game->hit_sound);
+    Mix_CloseAudio();
     SDL_Quit();
 }
 
@@ -141,6 +152,7 @@ int run_game(game_t *game) {
 
         handle_game_events(game);
         update_game(game, delta_time);
+        play_sounds(game);
         render_game(game);
 
         frame_count++;
@@ -191,4 +203,11 @@ void render_game_text(game_t *game, float x, float y, char *text) {
 void terminate_game_text(game_t *game) {
     TTF_CloseFont(game->font);
     TTF_Quit();
+}
+
+void play_sounds(game_t *game) {
+    if (game->ball.has_collided == 1) {
+        Mix_PlayChannel(-1, game->hit_sound, 0);
+        game->ball.has_collided = 0;
+    }
 }
