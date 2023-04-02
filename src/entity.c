@@ -22,7 +22,7 @@ void update_ball(ball_t *ball, float delta_time) {
 }
 
 void update_player_one_pad(pad_t *pad, float delta_time) {
-    float const speed = 120.f;
+    float const speed = 200.f;
     vector_2d_t velocity = pad->velocity;
     multiply_vector_by_scalar(&velocity, delta_time * speed);
     add_vectors(&pad->position, pad->position, velocity);
@@ -46,25 +46,29 @@ void update_player_two_pad(pad_t *pad, ball_t *ball, float delta_time) {
 }
 
 void check_collisions(ball_t *ball, pad_t *pad) {
-    float const ball_x = ball->position.x;
-    float const ball_xw = ball->position.x + ball->width;
-    float const pad_x = pad->position.x;
-    float const pad_xw = pad->position.x + pad->width;
-    float const ball_y = ball->position.y;
-    float const ball_yh = ball->position.y + ball->height;
-    float const pad_y = pad->position.y;
-    float const pad_yh = pad->position.y + pad->height;
+    const float ball_x = ball->position.x;
+    const float ball_xw = ball->position.x + ball->width;
+    const float pad_x = pad->position.x;
+    const float pad_xw = pad->position.x + pad->width;
+    const float ball_y = ball->position.y;
+    const float ball_yh = ball->position.y + ball->height;
+    const float pad_y = pad->position.y;
+    const float pad_yh = pad->position.y + pad->height;
 
-    if (ball_x < pad_xw && ball_x > pad_x
-            && ((ball_y > pad_y && ball_y < pad_yh)
-             || (ball_yh > pad_y && ball_yh < pad_yh))) {
-        ball->velocity.x = 1.f;
-        ball->has_collided = 1;
-    } else if (ball_xw > pad_x && ball_xw < pad_xw
-            && ((ball_y > pad_y && ball_y < pad_yh)
-            || (ball_yh > pad_y && ball_yh < pad_yh))) {
-        ball->velocity.x = -1.f;
-        ball->has_collided = 1;
+    const bool collide_x = (ball_x < pad_xw && ball_x > pad_x)
+                            || (ball_xw > pad_x && ball_xw < pad_xw);
+    const bool collide_y = (ball_y < pad_yh && ball_yh > pad_y)
+                            || (ball_yh > pad_y && ball_y < pad_yh);
+
+    if (collide_x && collide_y) {
+        const float ball_cx = ball->position.x + ball->width / 2.f;
+        const float pad_cx = pad->position.x + pad->width / 2.f;
+        const float rel_cx = ball_cx - pad_cx;
+        const float max_dist = (ball->width + pad->width) / 2.f;
+        const float norm_dist = rel_cx / max_dist;
+        ball->velocity.x = norm_dist;
+        ball->velocity.y = ball_yh < pad_y + pad->height / 2.f ? -1.f : 1.f;
+        ball->has_collided = true;
     }
 }
 

@@ -2,6 +2,7 @@
 #define ENTITY_H
 
 #include <SDL2/SDL.h>
+#include <stdbool.h>
 #include "game_settings.h"
 #include "utils.h"
 #include "vector.h"
@@ -12,7 +13,7 @@ typedef struct {
     vector_2d_t goal_velocity;
     int width;
     int height;
-    int has_collided;
+    bool has_collided;
 } entity_t;
 
 typedef entity_t ball_t;
