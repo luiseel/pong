@@ -4,7 +4,7 @@ CFLAGS = -Wall -Wextra -pedantic -std=c99
 TARGET = pong
 SRC_DIR = src
 BIN_DIR = bin
-SDL2_FLAGS = -F/Library/Frameworks -framework SDL2 -framework SDL2_ttf -framework SDL2_Mixer
+SDL2_FLAGS = `sdl2-config --cflags --libs` `pkg-config --cflags --libs sdl2_mixer` `pkg-config --cflags --libs sdl2_ttf`
 
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRCS))

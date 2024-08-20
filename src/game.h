@@ -2,8 +2,8 @@
 #define GAME_H
 
 #include <SDL2/SDL.h>
-#include <SDL2_ttf/SDL_ttf.h>
-#include <SDL2_Mixer/SDL_Mixer.h>
+#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_Mixer.h>
 #include "entity.h"
 #include "game_settings.h"
 #include "utils.h"
