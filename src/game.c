@@ -94,13 +94,7 @@ void update_game(game_t *game, float delta_time) {
     update_player_two_pad(&game->player_two_pad, &game->ball, delta_time);
     check_collisions(&game->ball, &game->player_one_pad);
     check_collisions(&game->ball, &game->player_two_pad);
-
-    if (game->ball.position.x < 0) {
-        game->player_two_score++;
-    }
-    if (game->ball.position.x + game->ball.width > GAME_WIDTH) {
-        game->player_one_score++;
-    }
+    check_wall_collisions(&game->ball, &game->player_one_score, &game->player_two_score);
 }
 
 void render_game(game_t *game) {
