@@ -77,10 +77,12 @@ void handle_game_events(game_t *game) {
                 game->is_running = FALSE;
                 break;
             case SDL_KEYDOWN:
-                handle_pad_key_press(&game->player_one_pad, state);
+                handle_pad_key_press(&game->player_one_pad, state, 1);
+                handle_pad_key_press(&game->player_two_pad, state, 2);
                 break;
             case SDL_KEYUP:
-                handle_pad_key_release(&game->player_one_pad, state);
+                handle_pad_key_release(&game->player_one_pad, state, 1);
+                handle_pad_key_release(&game->player_two_pad, state, 2);
                 break;
             default:
                 break;
@@ -91,7 +93,7 @@ void handle_game_events(game_t *game) {
 void update_game(game_t *game, float delta_time) {
     update_ball(&game->ball, delta_time);
     update_player_one_pad(&game->player_one_pad, delta_time);
-    update_player_two_pad(&game->player_two_pad, &game->ball, delta_time);
+    update_player_two_pad(&game->player_two_pad, delta_time);
     check_collisions(&game->ball, &game->player_one_pad);
     check_collisions(&game->ball, &game->player_two_pad);
     check_wall_collisions(&game->ball, &game->player_one_score, &game->player_two_score);

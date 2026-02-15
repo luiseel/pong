@@ -57,8 +57,15 @@ void update_player_one_pad(pad_t *pad, float delta_time) {
     }
 }
 
-void update_player_two_pad(pad_t *pad, ball_t *ball, float delta_time) {
-    pad->position.y = ball->position.y - (pad->height / 2.f - ball->height / 2.f);
+void update_player_two_pad(pad_t *pad, float delta_time) {
+    float const max_speed = 400.f;
+    float const friction = 10.f;
+
+    pad->velocity.y += (pad->goal_velocity.y - pad->velocity.y) * friction * delta_time;
+
+    float speed = pad->velocity.y * max_speed;
+    pad->position.y += speed * delta_time;
+
     if (pad->position.y < 0.f) {
         pad->position.y = 0.f;
     }
@@ -99,18 +106,33 @@ void check_collisions(ball_t *ball, pad_t *pad) {
     }
 }
 
-void handle_pad_key_press(pad_t *pad, Uint8 const *state) {
-    if (state[SDL_SCANCODE_S]) {
-        pad->goal_velocity.y = 1.f;
-    }
-    if (state[SDL_SCANCODE_W]) {
-        pad->goal_velocity.y = -1.f;
+void handle_pad_key_press(pad_t *pad, Uint8 const *state, int player_num) {
+    if (player_num == 1) {
+        if (state[SDL_SCANCODE_S]) {
+            pad->goal_velocity.y = 1.f;
+        }
+        if (state[SDL_SCANCODE_W]) {
+            pad->goal_velocity.y = -1.f;
+        }
+    } else {
+        if (state[SDL_SCANCODE_DOWN]) {
+            pad->goal_velocity.y = 1.f;
+        }
+        if (state[SDL_SCANCODE_UP]) {
+            pad->goal_velocity.y = -1.f;
+        }
     }
 }
 
-void handle_pad_key_release(pad_t *pad, Uint8 const *state) {
-    if (!state[SDL_SCANCODE_S] && !state[SDL_SCANCODE_W]) {
-        pad->goal_velocity.y = 0;
+void handle_pad_key_release(pad_t *pad, Uint8 const *state, int player_num) {
+    if (player_num == 1) {
+        if (!state[SDL_SCANCODE_S] && !state[SDL_SCANCODE_W]) {
+            pad->goal_velocity.y = 0;
+        }
+    } else {
+        if (!state[SDL_SCANCODE_UP] && !state[SDL_SCANCODE_DOWN]) {
+            pad->goal_velocity.y = 0;
+        }
     }
 }
 

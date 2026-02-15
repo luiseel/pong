@@ -22,11 +22,11 @@ typedef entity_t pad_t;
 void update_ball(ball_t *, float);
 void reset_ball(ball_t *);
 void update_player_one_pad(pad_t *, float);
-void update_player_two_pad(pad_t *, ball_t *, float);
+void update_player_two_pad(pad_t *, float);
 void check_collisions(ball_t *, pad_t *);
 void check_wall_collisions(ball_t *, int *, int *);
-void handle_pad_key_press(pad_t *, Uint8 const *);
-void handle_pad_key_release(pad_t *, Uint8 const *);
+void handle_pad_key_press(pad_t *, Uint8 const *, int);
+void handle_pad_key_release(pad_t *, Uint8 const *, int);
 void render_entity(entity_t *, SDL_Renderer *);
 
 #endif
