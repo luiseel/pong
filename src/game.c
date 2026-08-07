@@ -71,16 +71,18 @@ void terminate_game(game_t *game) {
 void handle_game_events(game_t *game) {
     SDL_Event event;
     Uint8 const *state = SDL_GetKeyboardState(NULL);
-    if (SDL_PollEvent(&event)) {
+    while (SDL_PollEvent(&event)) {
         switch (event.type) {
             case SDL_QUIT:
                 game->is_running = FALSE;
                 break;
             case SDL_KEYDOWN:
-                handle_pad_key_press(&game->player_one_pad, state);
+                handle_pad_key_press(&game->player_one_pad, state, 1);
+                handle_pad_key_press(&game->player_two_pad, state, 2);
                 break;
             case SDL_KEYUP:
-                handle_pad_key_release(&game->player_one_pad, state);
+                handle_pad_key_release(&game->player_one_pad, state, 1);
+                handle_pad_key_release(&game->player_two_pad, state, 2);
                 break;
             default:
                 break;
@@ -91,16 +93,10 @@ void handle_game_events(game_t *game) {
 void update_game(game_t *game, float delta_time) {
     update_ball(&game->ball, delta_time);
     update_player_one_pad(&game->player_one_pad, delta_time);
-    update_player_two_pad(&game->player_two_pad, &game->ball, delta_time);
+    update_player_two_pad(&game->player_two_pad, delta_time);
     check_collisions(&game->ball, &game->player_one_pad);
     check_collisions(&game->ball, &game->player_two_pad);
-
-    if (game->ball.position.x < 0) {
-        game->player_two_score++;
-    }
-    if (game->ball.position.x + game->ball.width > GAME_WIDTH) {
-        game->player_one_score++;
-    }
+    check_wall_collisions(&game->ball, &game->player_one_score, &game->player_two_score);
 }
 
 void render_game(game_t *game) {
@@ -110,8 +106,12 @@ void render_game(game_t *game) {
     SDL_SetRenderDrawColor(game->renderer, 39, 39, 39, 0);
     SDL_RenderClear(game->renderer);
 
-    render_game_text(game, GAME_PLAYER_ONE_SCORE_X, GAME_SCORE_Y, player_one_score);
-    render_game_text(game, GAME_PLAYER_TWO_SCORE_X, GAME_SCORE_Y, player_two_score);
+    if (player_one_score != NULL) {
+        render_game_text(game, GAME_PLAYER_ONE_SCORE_X, GAME_SCORE_Y, player_one_score);
+    }
+    if (player_two_score != NULL) {
+        render_game_text(game, GAME_PLAYER_TWO_SCORE_X, GAME_SCORE_Y, player_two_score);
+    }
 
     render_entity(&game->ball, game->renderer);
     render_entity(&game->player_one_pad, game->renderer);
@@ -146,8 +146,8 @@ int run_game(game_t *game) {
         current_time = SDL_GetTicks();
         delta_time = (current_time - last_time) / 1000.0f;
 
-        if (delta_time > target_frame_time) {
-            delta_time = target_frame_time;
+        if (delta_time > target_frame_time / 1000.0f) {
+            delta_time = target_frame_time / 1000.0f;
         }
 
         handle_game_events(game);
@@ -191,7 +191,14 @@ void render_game_text(game_t *game, float x, float y, char *text) {
     int font_height = 0;
 
     SDL_Surface *surface = TTF_RenderText_Solid(game->font, text, base_color);
+    if (surface == NULL) {
+        return;
+    }
     SDL_Texture *texture = SDL_CreateTextureFromSurface(game->renderer, surface);
+    if (texture == NULL) {
+        SDL_FreeSurface(surface);
+        return;
+    }
     SDL_QueryTexture(texture, NULL, NULL, &font_width, &font_height);
     SDL_Rect dest = { x, y, font_width, font_height };
 
