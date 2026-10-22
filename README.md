@@ -10,3 +10,10 @@ https://github.com/user-attachments/assets/cbf3c81e-f0a9-4291-9aa2-cf5d62417355
 make
 ./bin/pong
 ```
+
+## Controls
+
+- Title screen: use W/S or the arrow keys to select an option, then Enter or Space to confirm.
+- Play: use W/S for player one and Up/Down for player two.
+- Press Escape during a match or on the credits screen to return to the title screen.
+- Press Escape on the title screen to quit.

@@ -29,12 +29,21 @@ int init_game(game_t *game) {
         return 1;
     }
 
+    reset_match(game);
+    game->current_scene = SCENE_TITLE;
+    game->selected_menu_item = 0;
+    game->is_running = TRUE;
+    return 0;
+}
+
+void reset_match(game_t *game) {
     game->ball.width = 12;
     game->ball.height = 12;
     game->ball.position.x = GAME_WIDTH / 2 - 6;
     game->ball.position.y = GAME_HEIGHT / 2 - 6;
     game->ball.velocity.x = 1;
     game->ball.velocity.y = 1;
+    game->ball.has_collided = false;
 
     game->player_one_pad.width = 10;
     game->player_one_pad.height = 50;
@@ -56,8 +65,6 @@ int init_game(game_t *game) {
 
     game->player_one_score = 0;
     game->player_two_score = 0;
-    game->is_running = TRUE;
-    return 0;
 }
 
 void terminate_game(game_t *game) {
@@ -66,61 +73,6 @@ void terminate_game(game_t *game) {
     Mix_FreeChunk(game->hit_sound);
     Mix_CloseAudio();
     SDL_Quit();
-}
-
-void handle_game_events(game_t *game) {
-    SDL_Event event;
-    Uint8 const *state = SDL_GetKeyboardState(NULL);
-    while (SDL_PollEvent(&event)) {
-        switch (event.type) {
-            case SDL_QUIT:
-                game->is_running = FALSE;
-                break;
-            case SDL_KEYDOWN:
-                handle_pad_key_press(&game->player_one_pad, state, 1);
-                handle_pad_key_press(&game->player_two_pad, state, 2);
-                break;
-            case SDL_KEYUP:
-                handle_pad_key_release(&game->player_one_pad, state, 1);
-                handle_pad_key_release(&game->player_two_pad, state, 2);
-                break;
-            default:
-                break;
-        }
-    }
-}
-
-void update_game(game_t *game, float delta_time) {
-    update_ball(&game->ball, delta_time);
-    update_player_one_pad(&game->player_one_pad, delta_time);
-    update_player_two_pad(&game->player_two_pad, delta_time);
-    check_collisions(&game->ball, &game->player_one_pad);
-    check_collisions(&game->ball, &game->player_two_pad);
-    check_wall_collisions(&game->ball, &game->player_one_score, &game->player_two_score);
-}
-
-void render_game(game_t *game) {
-    char *player_one_score = itos(game->player_one_score);
-    char *player_two_score = itos(game->player_two_score);
-
-    SDL_SetRenderDrawColor(game->renderer, 39, 39, 39, 0);
-    SDL_RenderClear(game->renderer);
-
-    if (player_one_score != NULL) {
-        render_game_text(game, GAME_PLAYER_ONE_SCORE_X, GAME_SCORE_Y, player_one_score);
-    }
-    if (player_two_score != NULL) {
-        render_game_text(game, GAME_PLAYER_TWO_SCORE_X, GAME_SCORE_Y, player_two_score);
-    }
-
-    render_entity(&game->ball, game->renderer);
-    render_entity(&game->player_one_pad, game->renderer);
-    render_entity(&game->player_two_pad, game->renderer);
-
-    free(player_one_score);
-    free(player_two_score);
-
-    SDL_RenderPresent(game->renderer);
 }
 
 int run_game(game_t *game) {
@@ -140,6 +92,7 @@ int run_game(game_t *game) {
         SDL_Log("Couldn't initialize game text: %s", TTF_GetError());
         return 1;
     }
+    change_scene(game, SCENE_TITLE);
 
     while (game->is_running) {
         last_time = current_time;
@@ -150,10 +103,17 @@ int run_game(game_t *game) {
             delta_time = target_frame_time / 1000.0f;
         }
 
-        handle_game_events(game);
-        update_game(game, delta_time);
-        play_sounds(game);
-        render_game(game);
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                game->is_running = FALSE;
+            } else {
+                scene_handle_event(game, &event);
+            }
+        }
+
+        scene_update(game, delta_time);
+        scene_render(game);
 
         frame_count++;
         Uint32 elapsed_time = SDL_GetTicks() - fps_last_time;
@@ -186,11 +146,11 @@ int init_game_text(game_t *game) {
     return 0;
 }
 
-void render_game_text(game_t *game, float x, float y, char *text) {
+void render_game_text(game_t *game, int x, int y, char const *text, SDL_Color color) {
     int font_width = 0;
     int font_height = 0;
 
-    SDL_Surface *surface = TTF_RenderText_Solid(game->font, text, base_color);
+    SDL_Surface *surface = TTF_RenderText_Solid(game->font, text, color);
     if (surface == NULL) {
         return;
     }
@@ -205,6 +165,17 @@ void render_game_text(game_t *game, float x, float y, char *text) {
     SDL_RenderCopy(game->renderer, texture, NULL, &dest);
     SDL_DestroyTexture(texture);
     SDL_FreeSurface(surface);
+}
+
+void render_centered_text(game_t *game, int y, char const *text, SDL_Color color) {
+    int width;
+    int height;
+
+    if (TTF_SizeText(game->font, text, &width, &height) != 0) {
+        return;
+    }
+
+    render_game_text(game, (GAME_WIDTH - width) / 2, y, text, color);
 }
 
 void terminate_game_text(game_t *game) {
