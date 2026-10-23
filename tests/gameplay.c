@@ -20,16 +20,24 @@ static void check_spawn_weighting(void) {
         game_t game = new_match();
         game.player_one_score = cases[c].one;
         game.player_two_score = cases[c].two;
-        int left = 0;
+        int left = 0, speed = 0, grow_left = 0, grow_right = 0;
         for (int i = 0; i < 20000; i++) {
             game.power_ups.active = false;
             game.power_ups.spawn_remaining = 0;
             update_power_ups(&game, 0.001f);
             assert(game.power_ups.active);
             assert(fabsf(game.power_ups.velocity.x) > 100);
-            if (game.power_ups.velocity.x < 0) left++;
+            if (game.power_ups.kind == POWER_UP_GROW) {
+                if (game.power_ups.velocity.x < 0) grow_left++;
+                else grow_right++;
+                assert(abs(grow_left - grow_right) <= 1);
+            } else {
+                speed++;
+                if (game.power_ups.velocity.x < 0) left++;
+            }
         }
-        assert(fabsf(left / 20000.f - cases[c].expected_left) < 0.02f);
+        assert(fabsf(left / (float)speed - cases[c].expected_left) < 0.02f);
+        assert(fabsf((grow_left + grow_right) / 20000.f - 0.25f) < 0.02f);
     }
 }
 
@@ -112,6 +120,61 @@ static void check_paddle_contact(void) {
                 assert(game.ball.position.y >= pad->position.y + pad->height);
                 assert(game.ball.velocity.y > 0);
             }
+        }
+    }
+}
+
+static void check_growth_lifecycle(void) {
+    for (int player = 0; player < 2; player++) {
+        for (int edge = 0; edge < 3; edge++) {
+            game_t game = new_match();
+            pad_t *pad = player == 0 ? &game.player_one_pad : &game.player_two_pad;
+            pad_t *other = player == 0 ? &game.player_two_pad : &game.player_one_pad;
+            float *timer = player == 0 ? &game.power_ups.player_one_grow_remaining :
+                &game.power_ups.player_two_grow_remaining;
+            pad->position.y = edge == 0 ? 0 : edge == 1 ? 215 : 430;
+            for (int pickup = 0; pickup < 2; pickup++) {
+                game.power_ups.active = true;
+                game.power_ups.kind = POWER_UP_GROW;
+                game.power_ups.position = pad->position;
+                game.power_ups.velocity = (vector_2d_t){0, 0};
+                update_power_ups(&game, 0.01f);
+                assert(pad->height == 100 && other->height == 50);
+                assert(pad->position.y >= 0 && pad->position.y + pad->height <= GAME_HEIGHT);
+                assert(*timer == 8);
+                assert(game.power_ups.player_one_remaining == 0);
+                assert(game.power_ups.player_two_remaining == 0);
+                update_power_ups(&game, 1);
+            }
+            if (edge == 1) {
+                assert(pad->position.y == 190);
+                aim_at_pad(&game, player);
+                game.ball.position.y = pad->position.y + 85;
+                scene_update(&game, 1.f / 60.f);
+                assert(player == 0 ? game.ball.velocity.x > 0 : game.ball.velocity.x < 0);
+            }
+            game.power_ups.active = true;
+            game.power_ups.kind = POWER_UP_SPEED_BOOST;
+            game.power_ups.position = pad->position;
+            update_power_ups(&game, 0.01f);
+            assert(pad->height == 100 && *timer > 0);
+            assert(player == 0 ? game.power_ups.player_one_remaining == 8 :
+                game.power_ups.player_two_remaining == 8);
+            change_scene(&game, SCENE_TITLE);
+            float remaining = *timer;
+            scene_update(&game, 10);
+            assert(*timer == remaining && pad->height == 100);
+            update_power_ups(&game, 8);
+            assert(*timer == 0 && pad->height == 50);
+            if (edge == 1) assert(pad->position.y == 215);
+            game.power_ups.active = true;
+            game.power_ups.kind = POWER_UP_GROW;
+            game.power_ups.position = pad->position;
+            game.power_ups.velocity = (vector_2d_t){0, 0};
+            update_power_ups(&game, 0);
+            assert(pad->height == 100);
+            reset_match(&game);
+            assert(pad->height == 50 && *timer == 0);
         }
     }
 }
@@ -261,6 +324,7 @@ int main(void) {
     check_spawn_weighting();
     check_pickup_lifecycle();
     check_paddle_contact();
+    check_growth_lifecycle();
     check_powered_rally();
     check_resets_and_scenes();
     Mix_CloseAudio();

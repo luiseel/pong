@@ -5,7 +5,13 @@
 
 struct game;
 
+typedef enum { POWER_UP_SPEED_BOOST, POWER_UP_GROW } power_up_kind_t;
+
 typedef struct {
+    power_up_kind_t kind;
+    bool next_grow_left;
+    float player_one_grow_remaining;
+    float player_two_grow_remaining;
     bool active;
     vector_2d_t position;
     vector_2d_t velocity;
