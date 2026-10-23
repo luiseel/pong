@@ -9,6 +9,7 @@
 
 typedef struct {
     vector_2d_t position;
+    vector_2d_t previous_position;
     vector_2d_t velocity;
     vector_2d_t goal_velocity;
     int width;

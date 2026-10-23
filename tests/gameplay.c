@@ -74,6 +74,48 @@ static void aim_at_pad(game_t *game, int player) {
     game->ball.velocity = (vector_2d_t){player == 0 ? -1 : 1, 0};
 }
 
+static void check_paddle_contact(void) {
+    struct {
+        float past_face;
+        float y_offset;
+        float velocity_y;
+        float pad_velocity_y;
+        bool should_hit;
+        int edge;
+    } cases[] = {
+        {2.f, 10.f, 0.f, 0.f, false, 0},
+        {-0.5f, 10.f, 0.f, 0.f, true, 0},
+        {-0.5f, -12.75f, 1.f, 0.f, false, -1},
+        {-0.5f, -11.25f, -1.f, 0.f, true, 0},
+        {-0.5f, -13.f, 0.f, -1.f, false, -1},
+        {-0.5f, -12.5f, 0.f, -1.f, true, 0},
+        {2.f, 50.75f, -1.f, 0.f, false, 1},
+        {2.f, 51.f, 0.f, 1.f, false, 1}
+    };
+    for (int player = 0; player < 2; player++) {
+        for (unsigned int c = 0; c < sizeof(cases) / sizeof(cases[0]); c++) {
+            game_t game = new_match();
+            pad_t *pad = player == 0 ? &game.player_one_pad : &game.player_two_pad;
+            float direction = player == 0 ? -1.f : 1.f;
+            float face = player == 0 ? pad->position.x + pad->width :
+                pad->position.x - game.ball.width;
+            game.ball.position.x = face + direction * cases[c].past_face;
+            game.ball.position.y = pad->position.y + cases[c].y_offset;
+            game.ball.velocity = (vector_2d_t){direction, cases[c].velocity_y};
+            pad->velocity.y = cases[c].pad_velocity_y;
+            scene_update(&game, 1.f / 240.f);
+            assert((game.ball.velocity.x * direction < 0) == cases[c].should_hit);
+            if (cases[c].edge < 0) {
+                assert(game.ball.position.y + game.ball.height <= pad->position.y);
+                assert(game.ball.velocity.y < 0);
+            } else if (cases[c].edge > 0) {
+                assert(game.ball.position.y >= pad->position.y + pad->height);
+                assert(game.ball.velocity.y > 0);
+            }
+        }
+    }
+}
+
 static void check_powered_rally(void) {
     game_t game = new_match();
     game.power_ups.player_one_remaining = 8;
@@ -218,6 +260,7 @@ int main(void) {
     check_match_flow();
     check_spawn_weighting();
     check_pickup_lifecycle();
+    check_paddle_contact();
     check_powered_rally();
     check_resets_and_scenes();
     Mix_CloseAudio();

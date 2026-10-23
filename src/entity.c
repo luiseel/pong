@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 void update_ball(ball_t *ball, float delta_time, float multiplier) {
+    ball->previous_position = ball->position;
     float const speed = 250.f;
 
     vector_2d_t velocity = ball->velocity;
@@ -39,6 +40,7 @@ void check_wall_collisions(ball_t *ball, int *player_one_score, int *player_two_
 }
 
 void update_player_one_pad(pad_t *pad, float delta_time) {
+    pad->previous_position = pad->position;
     float const max_speed = 400.f;
     float const friction = 10.f;
 
@@ -58,6 +60,7 @@ void update_player_one_pad(pad_t *pad, float delta_time) {
 }
 
 void update_player_two_pad(pad_t *pad, float delta_time) {
+    pad->previous_position = pad->position;
     float const max_speed = 400.f;
     float const friction = 10.f;
 
@@ -74,16 +77,60 @@ void update_player_two_pad(pad_t *pad, float delta_time) {
     }
 }
 
+static bool check_pad_edge_collision(ball_t *ball, pad_t *pad) {
+    float start_y = ball->previous_position.y - pad->previous_position.y;
+    float end_y = ball->position.y - pad->position.y;
+    bool top = start_y <= -ball->height && end_y > -ball->height;
+    bool bottom = start_y >= pad->height && end_y < pad->height;
+    if (!top && !bottom) return false;
+
+    float edge = top ? -ball->height : pad->height;
+    float contact_time = (edge - start_y) / (end_y - start_y);
+    float ball_x = ball->previous_position.x +
+        (ball->position.x - ball->previous_position.x) * contact_time;
+    if (ball_x >= pad->position.x + pad->width ||
+        ball_x + ball->width <= pad->position.x) {
+        return false;
+    }
+
+    float movement_scale = 0.f;
+    if (ball->velocity.x != 0.f) {
+        movement_scale = (ball->position.x - ball->previous_position.x) / ball->velocity.x;
+    } else if (ball->velocity.y != 0.f) {
+        movement_scale = (ball->position.y - ball->previous_position.y) / ball->velocity.y;
+    }
+    float pad_velocity = movement_scale > 0.f ?
+        (pad->position.y - pad->previous_position.y) / movement_scale : 0.f;
+    ball->velocity.y = 2.f * pad_velocity - ball->velocity.y;
+    ball->position.y = pad->position.y + edge;
+    ball->has_collided = true;
+    return true;
+}
+
 bool check_collisions(ball_t *ball, pad_t *pad) {
+    if (check_pad_edge_collision(ball, pad)) return true;
     bool left_pad = pad->position.x < GAME_WIDTH / 2;
     if ((left_pad && ball->velocity.x >= 0) ||
         (!left_pad && ball->velocity.x <= 0)) {
         return false;
     }
-    if (ball->position.x >= pad->position.x + pad->width ||
-        ball->position.x + ball->width <= pad->position.x ||
-        ball->position.y >= pad->position.y + pad->height ||
-        ball->position.y + ball->height <= pad->position.y) {
+    float face = left_pad ? pad->position.x + pad->width : pad->position.x - ball->width;
+    float start_x = ball->previous_position.x;
+    float end_x = ball->position.x;
+    if (left_pad ? (start_x < face || end_x > face) :
+                   (start_x > face || end_x < face)) {
+        return false;
+    }
+    if (start_x == end_x) {
+        return false;
+    }
+
+    float contact_time = (face - start_x) / (end_x - start_x);
+    float ball_y = ball->previous_position.y +
+        (ball->position.y - ball->previous_position.y) * contact_time;
+    float pad_y = pad->previous_position.y +
+        (pad->position.y - pad->previous_position.y) * contact_time;
+    if (ball_y >= pad_y + pad->height || ball_y + ball->height <= pad_y) {
         return false;
     }
 
@@ -95,7 +142,7 @@ bool check_collisions(ball_t *ball, pad_t *pad) {
     if (horizontal < 0.5f) horizontal = 0.5f;
     ball->velocity.x = left_pad ? horizontal : -horizontal;
     ball->velocity.y =
-        (ball->position.y + ball->height < pad->position.y + pad->height / 2.f ? -1.f : 1.f)
+        (ball_y + ball->height < pad_y + pad->height / 2.f ? -1.f : 1.f)
         + pad->velocity.y * 0.5f;
     ball->position.x = left_pad ? pad->position.x + pad->width : pad->position.x - ball->width;
     ball->has_collided = true;
