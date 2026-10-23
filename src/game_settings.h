@@ -19,10 +19,10 @@
 #define POWER_UP_WEIGHT_STEP 15
 #define POWER_UP_WEIGHT_CAP 90
 #define POWER_UP_TRAIL_LENGTH 8
-#define AI_REACTION_TIME 0.12f
-#define AI_AIM_ERROR 36.f
-#define AI_MAX_SPEED 0.75f
-#define AI_DEAD_ZONE 6.f
+#define AI_REACTION_TIME 0.12f  // seconds between target re-evaluations
+#define AI_AIM_ERROR 36.f       // max random target offset per rally, pixels
+#define AI_MAX_SPEED 0.75f      // fraction of pad goal velocity; a human uses 1.0
+#define AI_DEAD_ZONE 6.f        // pixels from target where the pad stops
 #define GAME_TITLE "Pong"
 
 #define GAME_FONT_SIZE 64

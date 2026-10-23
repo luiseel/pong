@@ -37,8 +37,10 @@ static float clamp_target(pad_t const *pad, float target) {
 
 void update_ai_pad(ai_state_t *ai, pad_t *pad, ball_t const *ball,
                    power_up_state_t const *power, float delta_time) {
-    bool ball_incoming = ball->velocity.x > 0.f;
-    bool power_incoming = power != NULL && power->active && power->velocity.x > 0.f;
+    // Only objects still in front of the pad count; anything past it is gone
+    bool ball_incoming = ball->velocity.x > 0.f && ball->position.x < pad->position.x;
+    bool power_incoming = power->active && power->velocity.x > 0.f &&
+        power->position.x < pad->position.x;
 
     if (ball_incoming) {
         if (!ai->tracking) {

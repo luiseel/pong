@@ -9,7 +9,7 @@ typedef struct {
     float reaction_remaining;
     float aim_offset;
     float target_y;
-    bool tracking;   /* true while the ball moves toward the AI pad */
+    bool tracking;   // true while the ball moves toward the AI pad
 } ai_state_t;
 
 void reset_ai(ai_state_t *);
