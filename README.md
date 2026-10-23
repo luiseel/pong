@@ -26,8 +26,8 @@ hits: your shots travel at 1.5× speed with a glowing trail. An ordinary return
 restores normal speed. Collecting another pickup refreshes your power duration.
 The paddle glow and shrinking bar show how much power remains.
 
-Pickups favor the losing player: 60% when one point behind, 70% when two behind,
-and 80% when three or more behind. Tied scores give each player a 50% chance.
+Pickups favor the losing player: 65% when one point behind, 80% when two behind,
+and 90% when three or more behind. Tied scores give each player a 50% chance.
 The direction is chosen when the pickup spawns; you still have to catch it.
 
 Only one pickup appears at a time. The first spawns after 8–14 seconds, with a

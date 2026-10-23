@@ -13,8 +13,8 @@ static game_t new_match(void) {
 
 static void check_spawn_weighting(void) {
     struct { int one; int two; float expected_left; } cases[] = {
-        {0, 0, 0.5f}, {0, 1, 0.6f}, {0, 2, 0.7f}, {0, 3, 0.8f},
-        {0, 12, 0.8f}, {1, 0, 0.4f}, {2, 0, 0.3f}, {12, 0, 0.2f}
+        {0, 0, 0.5f}, {0, 1, 0.65f}, {0, 2, 0.8f}, {0, 3, 0.9f},
+        {0, 12, 0.9f}, {1, 0, 0.35f}, {2, 0, 0.2f}, {12, 0, 0.1f}
     };
     for (unsigned int c = 0; c < sizeof(cases) / sizeof(cases[0]); c++) {
         game_t game = new_match();
