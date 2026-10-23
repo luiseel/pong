@@ -64,12 +64,12 @@ static bool touches_pad(power_up_state_t const *power, pad_t const *pad) {
         power->position.y + POWER_UP_SIZE > pad->position.y;
 }
 
-static void collect_power(power_up_state_t *power, pad_t *pad, float *speed, float *grow) {
+static void collect_power(power_up_state_t *power, pad_t *pad, float *speed_remaining, float *grow_remaining) {
     if (power->kind == POWER_UP_GROW) {
-        *grow = POWER_UP_DURATION;
+        *grow_remaining = POWER_UP_DURATION;
         resize_pad(pad, POWER_UP_GROW_HEIGHT);
     } else {
-        *speed = POWER_UP_DURATION;
+        *speed_remaining = POWER_UP_DURATION;
     }
     schedule_spawn(power);
 }
