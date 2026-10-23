@@ -6,11 +6,20 @@
 
 #include "game.h"
 
-#define MENU_ITEM_COUNT 2
+#define MENU_ITEM_COUNT 3
 
 static SDL_Color const normal_color = { 235, 219, 178, 255 };
 static SDL_Color const selected_color = { 251, 73, 52, 255 };
 static SDL_Color const background_color = { 39, 39, 39, 255 };
+
+static struct {
+    char const *label;
+    int y;
+} const title_items[MENU_ITEM_COUNT] = {
+    { "1 PLAYER", 210 },
+    { "2 PLAYERS", 274 },
+    { "CREDITS", 338 },
+};
 
 static void render_selection_indicator(game_t *game, int y, char const *text) {
     int text_width;
@@ -102,10 +111,15 @@ static void handle_title_event(game_t *game, SDL_Event const *event) {
             break;
         case SDLK_RETURN:
         case SDLK_SPACE:
-            change_scene(
-                game,
-                game->selected_menu_item == 0 ? SCENE_SETUP : SCENE_CREDITS
-            );
+            if (game->selected_menu_item == 0) {
+                game->mode = MODE_PVC;
+                change_scene(game, SCENE_SETUP);
+            } else if (game->selected_menu_item == 1) {
+                game->mode = MODE_PVP;
+                change_scene(game, SCENE_SETUP);
+            } else {
+                change_scene(game, SCENE_CREDITS);
+            }
             break;
         case SDLK_ESCAPE:
             game->is_running = FALSE;
@@ -241,10 +255,16 @@ void scene_update(game_t *game, float delta_time) {
     }
 
     Uint8 const *keyboard = SDL_GetKeyboardState(NULL);
-    handle_pad_key_release(&game->player_one_pad, keyboard, 1);
-    handle_pad_key_release(&game->player_two_pad, keyboard, 2);
-    handle_pad_key_press(&game->player_one_pad, keyboard, 1);
-    handle_pad_key_press(&game->player_two_pad, keyboard, 2);
+    if (game->mode == MODE_PVC) {
+        handle_solo_pad_keys(&game->player_one_pad, keyboard);
+        update_ai_pad(&game->ai, &game->player_two_pad, &game->ball,
+            &game->power_ups, delta_time);
+    } else {
+        handle_pad_key_release(&game->player_one_pad, keyboard, 1);
+        handle_pad_key_release(&game->player_two_pad, keyboard, 2);
+        handle_pad_key_press(&game->player_one_pad, keyboard, 1);
+        handle_pad_key_press(&game->player_two_pad, keyboard, 2);
+    }
 
     int old_one_score = game->player_one_score;
     int old_two_score = game->player_two_score;
@@ -280,33 +300,18 @@ void scene_update(game_t *game, float delta_time) {
 }
 
 static void render_title(game_t *game) {
-    SDL_Color play_color = normal_color;
-    SDL_Color credits_color = normal_color;
-
-    if (game->selected_menu_item == 0) {
-        play_color = selected_color;
-    } else {
-        credits_color = selected_color;
-    }
-
     render_centered_text(game, game->font, 70, "PONG", normal_color);
-    render_centered_text(
-        game, game->menu_font,
-        210,
-        "PLAY",
-        play_color
-    );
-    render_centered_text(
-        game, game->menu_font,
-        274,
-        "CREDITS",
-        credits_color
-    );
-
-    if (game->selected_menu_item == 0) {
-        render_selection_indicator(game, 210, "PLAY");
-    } else {
-        render_selection_indicator(game, 274, "CREDITS");
+    for (int i = 0; i < MENU_ITEM_COUNT; i++) {
+        bool selected = game->selected_menu_item == i;
+        render_centered_text(
+            game, game->menu_font,
+            title_items[i].y,
+            title_items[i].label,
+            selected ? selected_color : normal_color
+        );
+        if (selected) {
+            render_selection_indicator(game, title_items[i].y, title_items[i].label);
+        }
     }
 }
 
@@ -391,9 +396,11 @@ static void render_countdown(game_t *game) {
 static void render_winner(game_t *game) {
     char score[32];
     snprintf(score, sizeof(score), "%d - %d", game->player_one_score, game->player_two_score);
-    render_centered_text(game, game->font, 30,
-        game->player_one_score >= game->target_score ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!",
-        selected_color);
+    bool player_one_won = game->player_one_score >= game->target_score;
+    char const *headline = game->mode == MODE_PVC ?
+        (player_one_won ? "YOU WIN!" : "CPU WINS!") :
+        (player_one_won ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!");
+    render_centered_text(game, game->font, 30, headline, selected_color);
     render_centered_text(game, game->font, 130, score, normal_color);
     render_centered_text(game, game->menu_font, 250, "REMATCH",
         game->selected_menu_item == 0 ? selected_color : normal_color);

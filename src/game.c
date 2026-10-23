@@ -32,6 +32,7 @@ int init_game(game_t *game) {
     }
 
     game->target_score = MATCH_DEFAULT_TARGET;
+    game->mode = MODE_PVP;
     srand((unsigned int)time(NULL));
     reset_match(game);
     game->current_scene = SCENE_TITLE;
@@ -70,6 +71,7 @@ void reset_match(game_t *game) {
     game->player_one_score = 0;
     game->player_two_score = 0;
     reset_power_ups(game);
+    reset_ai(&game->ai);
 }
 
 void terminate_game(game_t *game) {

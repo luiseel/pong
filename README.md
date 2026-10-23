@@ -13,11 +13,12 @@ make
 
 ## Controls
 
-- Title screen: use W/S or the arrow keys to select an option, then Enter or Space to confirm.
+- Title screen: use W/S or the arrow keys to select 1 Player, 2 Players, or Credits, then Enter or Space to confirm.
 - Match setup: use Left/Right or A/D to choose a winning score from 1–21 (default 5), then Enter or Space to start.
 - Each new match and rematch begins with a 3, 2, 1, GO countdown; gameplay and power-up timers stay frozen until it finishes.
 - The first player to reach the selected score wins. On the winner screen, use W/S or Up/Down and Enter or Space to choose Rematch or Main menu. Rematches keep the selected winning score.
-- Play: use W/S for player one and Up/Down for player two.
+- Play (2 players): use W/S for player one and Up/Down for player two.
+- Play (1 player): use W/S or Up/Down for player one. The computer controls the right paddle. It moves a little slower than you and has some aim error. It also goes after pickups that drift toward it when the ball is not a threat.
 - Press Escape during a match to pause. Scores, positions, and power-up timers stay frozen. Press Escape again to resume, or use W/S or Up/Down and Enter or Space to choose Resume or Main Menu.
 - Press Escape during setup, the countdown, or on the winner or credits screen to return to the title screen.
 - Press Escape on the title screen to quit.

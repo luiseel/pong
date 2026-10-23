@@ -310,8 +310,10 @@ static void check_pause_flow(void) {
 static void check_match_flow(void) {
     game_t game = new_match();
     change_scene(&game, SCENE_TITLE);
+    press_key(&game, SDLK_DOWN);
     press_key(&game, SDLK_RETURN);
     assert(game.current_scene == SCENE_SETUP);
+    assert(game.mode == MODE_PVP);
     assert(game.target_score == MATCH_DEFAULT_TARGET);
     for (int i = 0; i < 30; i++) press_key(&game, SDLK_LEFT);
     assert(game.target_score == 1);
@@ -364,6 +366,217 @@ static void check_match_flow(void) {
     assert(game.current_scene == SCENE_TITLE);
 }
 
+static void play_ai_rally(vector_2d_t velocity) {
+    game_t game = new_match();
+    game.mode = MODE_PVC;
+    pad_t *pad = &game.player_two_pad;
+    pad->position.y = 0;
+    game.ball.position = (vector_2d_t){100, GAME_HEIGHT / 2 - game.ball.height / 2};
+    game.ball.velocity = velocity;
+    float const face = pad->position.x - game.ball.width;
+    bool overlapped = false;
+    for (int i = 0; i < 60 * 8 && game.ball.velocity.x > 0; i++) {
+        scene_update(&game, 1.f / 60.f);
+        game.ai.aim_offset = 0;
+        assert(game.ai.target_y >= 0 && game.ai.target_y <= GAME_HEIGHT);
+        if (game.ball.position.x >= face - 5) {
+            overlapped = game.ball.position.y < pad->position.y + pad->height &&
+                game.ball.position.y + game.ball.height > pad->position.y;
+        }
+    }
+    assert(pad->position.y > 0);
+    assert(overlapped);
+    assert(game.ball.velocity.x < 0);
+    assert(game.player_one_score == 0 && game.player_two_score == 0);
+}
+
+static void check_ai_tracking(void) {
+    for (int i = 0; i < 20; i++) play_ai_rally((vector_2d_t){1, 0.5f});
+}
+
+static void check_ai_wall_bounce(void) {
+    for (int i = 0; i < 20; i++) play_ai_rally((vector_2d_t){0.5f, 1});
+    struct { float velocity_y; float expected; } cases[] = {{1, 435}, {-1, 45}};
+    for (unsigned int c = 0; c < sizeof(cases) / sizeof(cases[0]); c++) {
+        game_t game = new_match();
+        game.ball.position = (vector_2d_t){330, GAME_HEIGHT / 2 - game.ball.height / 2};
+        game.ball.velocity = (vector_2d_t){1, cases[c].velocity_y};
+        update_ai_pad(&game.ai, &game.player_two_pad, &game.ball, &game.power_ups, 1.f / 60.f);
+        game.ai.aim_offset = 0;
+        game.ai.reaction_remaining = 0;
+        update_ai_pad(&game.ai, &game.player_two_pad, &game.ball, &game.power_ups, 1.f / 60.f);
+        assert(fabsf(game.ai.target_y - cases[c].expected) < 0.01f);
+    }
+}
+
+static void check_ai_idle(void) {
+    game_t game = new_match();
+    game.mode = MODE_PVC;
+    pad_t *pad = &game.player_two_pad;
+    pad->position.y = 0;
+    game.ball.position = (vector_2d_t){GAME_WIDTH / 2, 100};
+    game.ball.velocity = (vector_2d_t){-0.5f, 0};
+    for (int i = 0; i < 120; i++) scene_update(&game, 1.f / 60.f);
+    assert(game.ball.velocity.x < 0);
+    float center = pad->position.y + pad->height / 2.f;
+    assert(fabsf(center - GAME_HEIGHT / 2.f) <= AI_DEAD_ZONE + 2);
+    assert(pad->goal_velocity.y == 0);
+    assert(!game.ai.tracking);
+}
+
+static void check_ai_power_up(void) {
+    game_t game = new_match();
+    game.mode = MODE_PVC;
+    pad_t *pad = &game.player_two_pad;
+    pad->position.y = GAME_HEIGHT - pad->height;
+    game.ball.position = (vector_2d_t){600, 100};
+    game.ball.velocity = (vector_2d_t){-0.1f, 0};
+    game.power_ups.active = true;
+    game.power_ups.kind = POWER_UP_SPEED_BOOST;
+    game.power_ups.position = (vector_2d_t){(GAME_WIDTH - POWER_UP_SIZE) / 2.f, 100};
+    game.power_ups.velocity = (vector_2d_t){POWER_UP_SPEED, 0};
+    for (int i = 0; i < 150; i++) scene_update(&game, 1.f / 60.f);
+    assert(!game.power_ups.active);
+    assert(game.power_ups.player_two_remaining > 0);
+
+    // An incoming ball takes priority over the pickup
+    game = new_match();
+    game.ball.position = (vector_2d_t){400, 8};
+    game.ball.velocity = (vector_2d_t){1, 0};
+    game.power_ups.active = true;
+    game.power_ups.position = (vector_2d_t){400, 400};
+    game.power_ups.velocity = (vector_2d_t){POWER_UP_SPEED, 0};
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+    game.ai.aim_offset = 0;
+    game.ai.reaction_remaining = 0;
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+    assert(game.ai.tracking);
+    assert(fabsf(game.ai.target_y - pad->height / 2.f) < 0.01f);
+}
+
+static void check_ai_speed_cap(void) {
+    game_t game = new_match();
+    pad_t *pad = &game.player_two_pad;
+    for (int direction = -1; direction <= 1; direction += 2) {
+        reset_ai(&game.ai);
+        pad->position.y = direction > 0 ? 0 : GAME_HEIGHT - pad->height;
+        game.ball.position = (vector_2d_t){400, direction > 0 ? GAME_HEIGHT - 20 : 8};
+        game.ball.velocity = (vector_2d_t){1, 0};
+        update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+        assert(game.ai.tracking);
+        assert(fabsf(game.ai.aim_offset) <= AI_AIM_ERROR);
+        assert(fabsf(pad->goal_velocity.y - direction * AI_MAX_SPEED) < 1e-6f);
+        game.ai.aim_offset = 0;
+        game.ai.reaction_remaining = 0;
+        update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+        float expected = game.ball.position.y + game.ball.height / 2.f;
+        float half = pad->height / 2.f;
+        expected = fmaxf(half, fminf(GAME_HEIGHT - half, expected));
+        assert(fabsf(game.ai.target_y - expected) < 0.01f);
+    }
+}
+
+static void check_ai_reaction_timing(void) {
+    game_t game = new_match();
+    pad_t *pad = &game.player_two_pad;
+    game.ball.position = (vector_2d_t){400, 100};
+    game.ball.velocity = (vector_2d_t){1, 0};
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+    game.ai.aim_offset = 0;
+    game.ai.reaction_remaining = 0;
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+    float first = 100 + game.ball.height / 2.f;
+    assert(fabsf(game.ai.target_y - first) < 0.01f);
+
+    // The ball moves, but the target only refreshes after the reaction time
+    game.ball.position.y = 300;
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, AI_REACTION_TIME / 2);
+    assert(fabsf(game.ai.target_y - first) < 0.01f);
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, AI_REACTION_TIME / 2 - 0.01f);
+    assert(fabsf(game.ai.target_y - first) < 0.01f);
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 0.02f);
+    assert(fabsf(game.ai.target_y - (300 + game.ball.height / 2.f)) < 0.01f);
+}
+
+static void check_ai_grown_pad_clamp(void) {
+    game_t game = new_match();
+    pad_t *pad = &game.player_two_pad;
+    pad->height = POWER_UP_GROW_HEIGHT;
+    game.ball.position = (vector_2d_t){400, 8};
+    game.ball.velocity = (vector_2d_t){1, 0};
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+    game.ai.aim_offset = 0;
+    game.ai.reaction_remaining = 0;
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+    assert(fabsf(game.ai.target_y - POWER_UP_GROW_HEIGHT / 2.f) < 0.01f);
+}
+
+static void check_ai_ignores_passed_objects(void) {
+    game_t game = new_match();
+    pad_t *pad = &game.player_two_pad;
+    pad->position.y = 0;
+
+    // A ball already behind the pad is not tracked
+    game.ball.position = (vector_2d_t){pad->position.x + 5, 300};
+    game.ball.velocity = (vector_2d_t){1, 0};
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+    assert(!game.ai.tracking);
+    assert(fabsf(game.ai.target_y - GAME_HEIGHT / 2.f) < 0.01f);
+
+    // A pickup still in front is chased even though the ball is behind
+    game.power_ups.active = true;
+    game.power_ups.position = (vector_2d_t){400, 400};
+    game.power_ups.velocity = (vector_2d_t){POWER_UP_SPEED, 0};
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+    assert(fabsf(game.ai.target_y - (400 + POWER_UP_SIZE / 2.f)) < 0.01f);
+
+    // A pickup behind the pad is ignored
+    game.power_ups.position.x = pad->position.x + 5;
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+    assert(fabsf(game.ai.target_y - GAME_HEIGHT / 2.f) < 0.01f);
+}
+
+static void check_mode_select(void) {
+    game_t game = new_match();
+    change_scene(&game, SCENE_TITLE);
+    press_key(&game, SDLK_RETURN);
+    assert(game.current_scene == SCENE_SETUP && game.mode == MODE_PVC);
+    change_scene(&game, SCENE_TITLE);
+    press_key(&game, SDLK_DOWN);
+    press_key(&game, SDLK_RETURN);
+    assert(game.current_scene == SCENE_SETUP && game.mode == MODE_PVP);
+    change_scene(&game, SCENE_TITLE);
+    press_key(&game, SDLK_UP);
+    assert(game.selected_menu_item == 2);
+    press_key(&game, SDLK_RETURN);
+    assert(game.current_scene == SCENE_CREDITS && game.mode == MODE_PVP);
+    change_scene(&game, SCENE_TITLE);
+    press_key(&game, SDLK_DOWN);
+    press_key(&game, SDLK_DOWN);
+    press_key(&game, SDLK_RETURN);
+    assert(game.current_scene == SCENE_CREDITS);
+    change_scene(&game, SCENE_TITLE);
+    for (int i = 0; i < 3; i++) press_key(&game, SDLK_DOWN);
+    assert(game.selected_menu_item == 0);
+    game.mode = MODE_PVC;
+    game.ai.tracking = true;
+    game.ai.target_y = 100;
+    change_scene(&game, SCENE_COUNTDOWN);
+    assert(game.mode == MODE_PVC);
+    assert(!game.ai.tracking && game.ai.target_y == 0);
+}
+
+static void check_pvp_unchanged(void) {
+    game_t game = new_match();
+    game.player_two_pad.position.y = 0;
+    game.ball.position = (vector_2d_t){100, GAME_HEIGHT / 2};
+    game.ball.velocity = (vector_2d_t){1, 0.5f};
+    for (int i = 0; i < 30; i++) scene_update(&game, 1.f / 60.f);
+    assert(game.player_two_pad.position.y == 0);
+    assert(game.player_two_pad.goal_velocity.y == 0);
+    assert(!game.ai.tracking);
+}
+
 int main(void) {
     srand(42);
     assert(SDL_Init(SDL_INIT_AUDIO) == 0);
@@ -376,6 +589,16 @@ int main(void) {
     check_growth_lifecycle();
     check_powered_rally();
     check_resets_and_scenes();
+    check_ai_tracking();
+    check_ai_wall_bounce();
+    check_ai_idle();
+    check_ai_power_up();
+    check_ai_speed_cap();
+    check_ai_reaction_timing();
+    check_ai_grown_pad_clamp();
+    check_ai_ignores_passed_objects();
+    check_mode_select();
+    check_pvp_unchanged();
     Mix_CloseAudio();
     SDL_Quit();
     puts("Gameplay checks passed");

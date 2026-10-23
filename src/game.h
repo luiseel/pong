@@ -5,10 +5,13 @@
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_mixer.h>
 #include "entity.h"
+#include "ai.h"
 #include "game_settings.h"
 #include "scene.h"
 #include "power_up.h"
 #include "utils.h"
+
+typedef enum { MODE_PVP, MODE_PVC } game_mode_t;
 
 struct game {
     SDL_Window *window;
@@ -19,6 +22,8 @@ struct game {
     int target_score;
     float countdown_remaining;
     power_up_state_t power_ups;
+    game_mode_t mode;
+    ai_state_t ai;
     ball_t ball;
     pad_t player_one_pad;
     pad_t player_two_pad;
