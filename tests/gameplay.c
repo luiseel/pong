@@ -124,6 +124,39 @@ static void check_paddle_contact(void) {
     }
 }
 
+static void check_face_bounce_angle(void) {
+    // Ball top relative to the pad top; the pad is 50 tall, the ball 12
+    struct { float y_offset; float pad_velocity_y; float expected_y; } cases[] = {
+        {19.f, 0.f, 0.f},        // center hit: flat
+        {0.f, 0.f, -0.599f},     // ball top at pad top: 36.8 degrees up
+        {38.f, 0.f, 0.599f},     // ball bottom at pad bottom: mirror
+        {-11.f, 0.f, -0.848f},   // one pixel of overlap: steep but under 60
+        {19.f, 1.f, 0.259f}      // center hit, pad moving down: 15 degrees
+    };
+    for (int player = 0; player < 2; player++) {
+        for (unsigned int c = 0; c < sizeof(cases) / sizeof(cases[0]); c++) {
+            game_t game = new_match();
+            pad_t *pad = player == 0 ? &game.player_one_pad : &game.player_two_pad;
+            float direction = player == 0 ? -1.f : 1.f;
+            float face = player == 0 ? pad->position.x + pad->width :
+                pad->position.x - game.ball.width;
+            pad->previous_position = pad->position;
+            pad->velocity.y = cases[c].pad_velocity_y;
+            game.ball.previous_position = (vector_2d_t){
+                face - direction, pad->position.y + cases[c].y_offset};
+            game.ball.position = (vector_2d_t){
+                face + direction, pad->position.y + cases[c].y_offset};
+            game.ball.velocity = (vector_2d_t){direction, 0};
+            assert(check_collisions(&game.ball, pad));
+            assert(game.ball.velocity.x * direction < 0);
+            assert(fabsf(game.ball.velocity.y - cases[c].expected_y) < 0.01f);
+            float speed = sqrtf(game.ball.velocity.x * game.ball.velocity.x +
+                game.ball.velocity.y * game.ball.velocity.y);
+            assert(fabsf(speed - 1.f) < 0.001f);
+        }
+    }
+}
+
 static void check_growth_lifecycle(void) {
     for (int player = 0; player < 2; player++) {
         for (int edge = 0; edge < 3; edge++) {
@@ -192,14 +225,14 @@ static void check_powered_rally(void) {
     scene_update(&game, 0.01f);
     assert(game.power_ups.player_one_remaining == 0);
     assert(game.power_ups.ball_powered);
-    assert(fabsf(game.ball.position.x - 303.75f) < 0.001f);
+    assert(fabsf(game.ball.position.x - (300 + BALL_SPEED * POWER_UP_BALL_MULTIPLIER * 0.01f)) < 0.001f);
     aim_at_pad(&game, 1);
     scene_update(&game, 1.f / 60.f);
     assert(!game.power_ups.ball_powered && game.ball.velocity.x < 0);
     game.ball.position = (vector_2d_t){300, 200};
     game.ball.velocity = (vector_2d_t){1, 0};
     scene_update(&game, 0.01f);
-    assert(fabsf(game.ball.position.x - 302.5f) < 0.001f);
+    assert(fabsf(game.ball.position.x - (300 + BALL_SPEED * 0.01f)) < 0.001f);
     game.power_ups.player_one_remaining = 8;
     game.power_ups.player_two_remaining = 8;
     for (int player = 0; player < 2; player++) {
@@ -210,7 +243,7 @@ static void check_powered_rally(void) {
     game.ball.position = (vector_2d_t){300, 200};
     game.ball.velocity = (vector_2d_t){1, 0};
     scene_update(&game, 0.01f);
-    assert(fabsf(game.ball.position.x - 303.75f) < 0.001f);
+    assert(fabsf(game.ball.position.x - (300 + BALL_SPEED * POWER_UP_BALL_MULTIPLIER * 0.01f)) < 0.001f);
 }
 
 static void check_resets_and_scenes(void) {
@@ -415,7 +448,8 @@ static void check_ai_idle(void) {
     pad_t *pad = &game.player_two_pad;
     pad->position.y = 0;
     game.ball.position = (vector_2d_t){GAME_WIDTH / 2, 100};
-    game.ball.velocity = (vector_2d_t){-0.5f, 0};
+    // Slow enough that the ball stays in flight for the whole two seconds
+    game.ball.velocity = (vector_2d_t){-0.3f, 0};
     for (int i = 0; i < 120; i++) scene_update(&game, 1.f / 60.f);
     assert(game.ball.velocity.x < 0);
     float center = pad->position.y + pad->height / 2.f;
@@ -586,6 +620,7 @@ int main(void) {
     check_spawn_weighting();
     check_pickup_lifecycle();
     check_paddle_contact();
+    check_face_bounce_angle();
     check_growth_lifecycle();
     check_powered_rally();
     check_resets_and_scenes();

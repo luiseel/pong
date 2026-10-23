@@ -1,9 +1,10 @@
 #include "entity.h"
+#include <math.h>
 #include <stdlib.h>
 
 void update_ball(ball_t *ball, float delta_time, float multiplier) {
     ball->previous_position = ball->position;
-    float const speed = 250.f;
+    float const speed = BALL_SPEED;
 
     vector_2d_t velocity = ball->velocity;
     multiply_vector_by_scalar(&velocity, delta_time * speed * multiplier);
@@ -15,6 +16,10 @@ void reset_ball(ball_t *ball) {
     ball->position.y = GAME_HEIGHT / 2 - ball->height / 2;
     ball->velocity.x = (rand() % 2 == 0) ? 1.f : -1.f;
     ball->velocity.y = (rand() % 2 == 0) ? 0.5f : -0.5f;
+    float length = sqrtf(ball->velocity.x * ball->velocity.x +
+                         ball->velocity.y * ball->velocity.y);
+    ball->velocity.x /= length;
+    ball->velocity.y /= length;
 }
 
 void check_wall_collisions(ball_t *ball, int *player_one_score, int *player_two_score) {
@@ -77,6 +82,12 @@ void update_player_two_pad(pad_t *pad, float delta_time) {
     }
 }
 
+static float clampf(float value, float min, float max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+}
+
 static bool check_pad_edge_collision(ball_t *ball, pad_t *pad) {
     float start_y = ball->previous_position.y - pad->previous_position.y;
     float end_y = ball->position.y - pad->position.y;
@@ -101,7 +112,8 @@ static bool check_pad_edge_collision(ball_t *ball, pad_t *pad) {
     }
     float pad_velocity = movement_scale > 0.f ?
         (pad->position.y - pad->previous_position.y) / movement_scale : 0.f;
-    ball->velocity.y = 2.f * pad_velocity - ball->velocity.y;
+    ball->velocity.y = clampf(2.f * pad_velocity - ball->velocity.y,
+        -BALL_MAX_EDGE_SPEED_Y, BALL_MAX_EDGE_SPEED_Y);
     ball->position.y = pad->position.y + edge;
     ball->has_collided = true;
     return true;
@@ -134,16 +146,13 @@ bool check_collisions(ball_t *ball, pad_t *pad) {
         return false;
     }
 
-    float ball_cx = ball->position.x + ball->width / 2.f;
-    float pad_cx = pad->position.x + pad->width / 2.f;
-    float max_dist = (ball->width + pad->width) / 2.f;
-    float horizontal = (ball_cx - pad_cx) / max_dist;
-    if (horizontal < 0) horizontal = -horizontal;
-    if (horizontal < 0.5f) horizontal = 0.5f;
-    ball->velocity.x = left_pad ? horizontal : -horizontal;
-    ball->velocity.y =
-        (ball_y + ball->height < pad_y + pad->height / 2.f ? -1.f : 1.f)
-        + pad->velocity.y * 0.5f;
+    float offset = ((ball_y + ball->height / 2.f) - (pad_y + pad->height / 2.f)) /
+        (pad->height / 2.f + ball->height / 2.f);
+    offset = clampf(offset + pad->velocity.y * BALL_PAD_SPIN, -1.f, 1.f);
+    float const max_angle = BALL_MAX_BOUNCE_DEGREES * 3.14159265f / 180.f;
+    float angle = offset * max_angle;
+    ball->velocity.x = left_pad ? cosf(angle) : -cosf(angle);
+    ball->velocity.y = sinf(angle);
     ball->position.x = left_pad ? pad->position.x + pad->width : pad->position.x - ball->width;
     ball->has_collided = true;
     return true;

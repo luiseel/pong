@@ -19,6 +19,10 @@
 #define POWER_UP_WEIGHT_STEP 15
 #define POWER_UP_WEIGHT_CAP 90
 #define POWER_UP_TRAIL_LENGTH 8
+#define BALL_SPEED 340.f            // pixels per second at unit velocity
+#define BALL_MAX_BOUNCE_DEGREES 60.f // max exit angle from a pad face hit
+#define BALL_PAD_SPIN 0.25f          // hit offset added per unit of pad velocity
+#define BALL_MAX_EDGE_SPEED_Y 1.5f   // max |velocity.y| after a pad edge hit
 #define AI_REACTION_TIME 0.12f  // seconds between target re-evaluations
 #define AI_AIM_ERROR 36.f       // max random target offset per rally, pixels
 #define AI_MAX_SPEED 0.75f      // fraction of pad goal velocity; a human uses 1.0
