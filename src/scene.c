@@ -18,12 +18,13 @@ static void render_selection_indicator(game_t *game, int y, char const *text) {
     int indicator_x;
     int indicator_center_y;
     int line_offset;
+    int arrow_size = MENU_FONT_SIZE / 5;
 
-    if (TTF_SizeText(game->font, text, &text_width, &text_height) != 0) {
+    if (TTF_SizeText(game->menu_font, text, &text_width, &text_height) != 0) {
         return;
     }
 
-    indicator_x = (GAME_WIDTH - text_width) / 2 - 28;
+    indicator_x = (GAME_WIDTH - text_width) / 2 - arrow_size - 12;
     indicator_center_y = y + text_height / 2;
 
     SDL_SetRenderDrawColor(
@@ -38,16 +39,16 @@ static void render_selection_indicator(game_t *game, int y, char const *text) {
         SDL_RenderDrawLine(
             game->renderer,
             indicator_x,
-            indicator_center_y - 12 + line_offset,
-            indicator_x + 12,
+            indicator_center_y - arrow_size + line_offset,
+            indicator_x + arrow_size,
             indicator_center_y + line_offset
         );
         SDL_RenderDrawLine(
             game->renderer,
-            indicator_x + 12,
+            indicator_x + arrow_size,
             indicator_center_y + line_offset,
             indicator_x,
-            indicator_center_y + 12 + line_offset
+            indicator_center_y + arrow_size + line_offset
         );
     }
 }
@@ -264,16 +265,16 @@ static void render_title(game_t *game) {
         credits_color = selected_color;
     }
 
-    render_centered_text(game, 70, "PONG", normal_color);
+    render_centered_text(game, game->font, 70, "PONG", normal_color);
     render_centered_text(
-        game,
+        game, game->menu_font,
         210,
         "PLAY",
         play_color
     );
     render_centered_text(
-        game,
-        290,
+        game, game->menu_font,
+        274,
         "CREDITS",
         credits_color
     );
@@ -281,7 +282,7 @@ static void render_title(game_t *game) {
     if (game->selected_menu_item == 0) {
         render_selection_indicator(game, 210, "PLAY");
     } else {
-        render_selection_indicator(game, 290, "CREDITS");
+        render_selection_indicator(game, 274, "CREDITS");
     }
 }
 
@@ -291,7 +292,7 @@ static void render_play(game_t *game) {
 
     if (player_one_score != NULL) {
         render_game_text(
-            game,
+            game, game->font,
             GAME_PLAYER_ONE_SCORE_X,
             GAME_SCORE_Y,
             player_one_score,
@@ -300,7 +301,7 @@ static void render_play(game_t *game) {
     }
     if (player_two_score != NULL) {
         render_game_text(
-            game,
+            game, game->font,
             GAME_PLAYER_TWO_SCORE_X,
             GAME_SCORE_Y,
             player_two_score,
@@ -319,18 +320,18 @@ static void render_play(game_t *game) {
 }
 
 static void render_credits(game_t *game) {
-    render_centered_text(game, 70, "CREDITS", normal_color);
-    render_centered_text(game, 210, "LUISEEL", normal_color);
-    render_centered_text(game, 340, "ESC TO RETURN", normal_color);
+    render_centered_text(game, game->font, 70, "CREDITS", normal_color);
+    render_centered_text(game, game->menu_font, 210, "LUISEEL", normal_color);
+    render_centered_text(game, game->hint_font, 340, "ESC TO RETURN", normal_color);
 }
 
 static void render_setup(game_t *game) {
     char target[32];
     snprintf(target, sizeof(target), "< %d >", game->target_score);
-    render_centered_text(game, 30, "FIRST TO", normal_color);
-    render_centered_text(game, 130, target, selected_color);
-    render_centered_text(game, 250, "ENTER TO START", normal_color);
-    render_centered_text(game, 350, "ESC TO RETURN", normal_color);
+    render_centered_text(game, game->font, 30, "FIRST TO", normal_color);
+    render_centered_text(game, game->font, 130, target, selected_color);
+    render_centered_text(game, game->hint_font, 250, "ENTER TO START", normal_color);
+    render_centered_text(game, game->hint_font, 350, "ESC TO RETURN", normal_color);
 }
 
 static void render_countdown(game_t *game) {
@@ -343,21 +344,21 @@ static void render_countdown(game_t *game) {
     SDL_Rect banner = {0, 170, GAME_WIDTH, 140};
     SDL_RenderFillRect(game->renderer, &banner);
     SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_NONE);
-    render_centered_text(game, 200, remaining > 0 ? count : "GO!", selected_color);
+    render_centered_text(game, game->font, 200, remaining > 0 ? count : "GO!", selected_color);
 }
 
 static void render_winner(game_t *game) {
     char score[32];
     snprintf(score, sizeof(score), "%d - %d", game->player_one_score, game->player_two_score);
-    render_centered_text(game, 30,
+    render_centered_text(game, game->font, 30,
         game->player_one_score >= game->target_score ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!",
         selected_color);
-    render_centered_text(game, 130, score, normal_color);
-    render_centered_text(game, 250, "REMATCH",
+    render_centered_text(game, game->font, 130, score, normal_color);
+    render_centered_text(game, game->menu_font, 250, "REMATCH",
         game->selected_menu_item == 0 ? selected_color : normal_color);
-    render_centered_text(game, 350, "MAIN MENU",
+    render_centered_text(game, game->menu_font, 314, "MAIN MENU",
         game->selected_menu_item == 1 ? selected_color : normal_color);
-    render_selection_indicator(game, game->selected_menu_item == 0 ? 250 : 350,
+    render_selection_indicator(game, game->selected_menu_item == 0 ? 250 : 314,
         game->selected_menu_item == 0 ? "REMATCH" : "MAIN MENU");
 }
 
