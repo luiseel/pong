@@ -192,14 +192,14 @@ static void check_powered_rally(void) {
     scene_update(&game, 0.01f);
     assert(game.power_ups.player_one_remaining == 0);
     assert(game.power_ups.ball_powered);
-    assert(fabsf(game.ball.position.x - 303.75f) < 0.001f);
+    assert(fabsf(game.ball.position.x - (300 + BALL_SPEED * POWER_UP_BALL_MULTIPLIER * 0.01f)) < 0.001f);
     aim_at_pad(&game, 1);
     scene_update(&game, 1.f / 60.f);
     assert(!game.power_ups.ball_powered && game.ball.velocity.x < 0);
     game.ball.position = (vector_2d_t){300, 200};
     game.ball.velocity = (vector_2d_t){1, 0};
     scene_update(&game, 0.01f);
-    assert(fabsf(game.ball.position.x - 302.5f) < 0.001f);
+    assert(fabsf(game.ball.position.x - (300 + BALL_SPEED * 0.01f)) < 0.001f);
     game.power_ups.player_one_remaining = 8;
     game.power_ups.player_two_remaining = 8;
     for (int player = 0; player < 2; player++) {
@@ -210,7 +210,7 @@ static void check_powered_rally(void) {
     game.ball.position = (vector_2d_t){300, 200};
     game.ball.velocity = (vector_2d_t){1, 0};
     scene_update(&game, 0.01f);
-    assert(fabsf(game.ball.position.x - 303.75f) < 0.001f);
+    assert(fabsf(game.ball.position.x - (300 + BALL_SPEED * POWER_UP_BALL_MULTIPLIER * 0.01f)) < 0.001f);
 }
 
 static void check_resets_and_scenes(void) {
@@ -415,7 +415,7 @@ static void check_ai_idle(void) {
     pad_t *pad = &game.player_two_pad;
     pad->position.y = 0;
     game.ball.position = (vector_2d_t){GAME_WIDTH / 2, 100};
-    game.ball.velocity = (vector_2d_t){-0.5f, 0};
+    game.ball.velocity = (vector_2d_t){-0.3f, 0};
     for (int i = 0; i < 120; i++) scene_update(&game, 1.f / 60.f);
     assert(game.ball.velocity.x < 0);
     float center = pad->position.y + pad->height / 2.f;
