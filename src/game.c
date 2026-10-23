@@ -1,4 +1,6 @@
 #include "game.h"
+#include <stdlib.h>
+#include <time.h>
 
 int init_game(game_t *game) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
@@ -29,6 +31,7 @@ int init_game(game_t *game) {
         return 1;
     }
 
+    srand((unsigned int)time(NULL));
     reset_match(game);
     game->current_scene = SCENE_TITLE;
     game->selected_menu_item = 0;
@@ -65,6 +68,7 @@ void reset_match(game_t *game) {
 
     game->player_one_score = 0;
     game->player_two_score = 0;
+    reset_power_ups(game);
 }
 
 void terminate_game(game_t *game) {

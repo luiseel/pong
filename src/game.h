@@ -7,6 +7,7 @@
 #include "entity.h"
 #include "game_settings.h"
 #include "scene.h"
+#include "power_up.h"
 #include "utils.h"
 
 struct game {
@@ -15,6 +16,7 @@ struct game {
     int is_running;
     scene_id_t current_scene;
     int selected_menu_item;
+    power_up_state_t power_ups;
     ball_t ball;
     pad_t player_one_pad;
     pad_t player_two_pad;

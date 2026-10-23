@@ -1,11 +1,11 @@
 #include "entity.h"
 #include <stdlib.h>
 
-void update_ball(ball_t *ball, float delta_time) {
+void update_ball(ball_t *ball, float delta_time, float multiplier) {
     float const speed = 250.f;
 
     vector_2d_t velocity = ball->velocity;
-    multiply_vector_by_scalar(&velocity, delta_time * speed);
+    multiply_vector_by_scalar(&velocity, delta_time * speed * multiplier);
     add_vectors(&ball->position, ball->position, velocity);
 }
 
@@ -74,36 +74,32 @@ void update_player_two_pad(pad_t *pad, float delta_time) {
     }
 }
 
-void check_collisions(ball_t *ball, pad_t *pad) {
-    const float ball_x = ball->position.x;
-    const float ball_xw = ball->position.x + ball->width;
-    const float pad_x = pad->position.x;
-    const float pad_xw = pad->position.x + pad->width;
-    const float ball_y = ball->position.y;
-    const float ball_yh = ball->position.y + ball->height;
-    const float pad_y = pad->position.y;
-    const float pad_yh = pad->position.y + pad->height;
-
-    const bool collide_x = (ball_x < pad_xw && ball_x > pad_x)
-                            || (ball_xw > pad_x && ball_xw < pad_xw);
-    const bool collide_y = (ball_y < pad_yh && ball_yh > pad_y)
-                            || (ball_yh > pad_y && ball_y < pad_yh);
-
-    if (collide_x && collide_y) {
-        const float ball_cx = ball->position.x + ball->width / 2.f;
-        const float pad_cx = pad->position.x + pad->width / 2.f;
-        const float rel_cx = ball_cx - pad_cx;
-        const float max_dist = (ball->width + pad->width) / 2.f;
-        const float norm_dist = rel_cx / max_dist;
-
-        // Add paddle velocity influence to ball's Y velocity
-        float paddle_influence = pad->velocity.y * 0.5f;
-        float base_y_velocity = ball_yh < pad_y + pad->height / 2.f ? -1.f : 1.f;
-
-        ball->velocity.x = norm_dist;
-        ball->velocity.y = base_y_velocity + paddle_influence;
-        ball->has_collided = true;
+bool check_collisions(ball_t *ball, pad_t *pad) {
+    bool left_pad = pad->position.x < GAME_WIDTH / 2;
+    if ((left_pad && ball->velocity.x >= 0) ||
+        (!left_pad && ball->velocity.x <= 0)) {
+        return false;
     }
+    if (ball->position.x >= pad->position.x + pad->width ||
+        ball->position.x + ball->width <= pad->position.x ||
+        ball->position.y >= pad->position.y + pad->height ||
+        ball->position.y + ball->height <= pad->position.y) {
+        return false;
+    }
+
+    float ball_cx = ball->position.x + ball->width / 2.f;
+    float pad_cx = pad->position.x + pad->width / 2.f;
+    float max_dist = (ball->width + pad->width) / 2.f;
+    float horizontal = (ball_cx - pad_cx) / max_dist;
+    if (horizontal < 0) horizontal = -horizontal;
+    if (horizontal < 0.5f) horizontal = 0.5f;
+    ball->velocity.x = left_pad ? horizontal : -horizontal;
+    ball->velocity.y =
+        (ball->position.y + ball->height < pad->position.y + pad->height / 2.f ? -1.f : 1.f)
+        + pad->velocity.y * 0.5f;
+    ball->position.x = left_pad ? pad->position.x + pad->width : pad->position.x - ball->width;
+    ball->has_collided = true;
+    return true;
 }
 
 void handle_pad_key_press(pad_t *pad, Uint8 const *state, int player_num) {

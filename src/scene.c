@@ -149,16 +149,31 @@ void scene_update(game_t *game, float delta_time) {
         return;
     }
 
-    update_ball(&game->ball, delta_time);
-    update_player_one_pad(&game->player_one_pad, delta_time);
-    update_player_two_pad(&game->player_two_pad, delta_time);
-    check_collisions(&game->ball, &game->player_one_pad);
-    check_collisions(&game->ball, &game->player_two_pad);
-    check_wall_collisions(
-        &game->ball,
-        &game->player_one_score,
-        &game->player_two_score
-    );
+    int old_one_score = game->player_one_score;
+    int old_two_score = game->player_two_score;
+    float remaining = delta_time;
+    while (remaining > 0) {
+        float step = remaining > 1.f / 240.f ? 1.f / 240.f : remaining;
+        remaining -= step;
+        update_player_one_pad(&game->player_one_pad, step);
+        update_player_two_pad(&game->player_two_pad, step);
+        update_power_ups(game, step);
+        update_ball(&game->ball, step,
+            game->power_ups.ball_powered ? POWER_UP_BALL_MULTIPLIER : 1.f);
+        if (check_collisions(&game->ball, &game->player_one_pad)) {
+            game->power_ups.ball_powered = game->power_ups.player_one_remaining > 0;
+        }
+        if (check_collisions(&game->ball, &game->player_two_pad)) {
+            game->power_ups.ball_powered = game->power_ups.player_two_remaining > 0;
+        }
+        check_wall_collisions(&game->ball, &game->player_one_score, &game->player_two_score);
+        if (old_one_score != game->player_one_score || old_two_score != game->player_two_score) {
+            game->power_ups.ball_powered = false;
+            game->power_ups.trail_count = 0;
+            break;
+        }
+    }
+    record_power_trail(game);
     play_sounds(game);
 }
 
@@ -219,6 +234,8 @@ static void render_play(game_t *game) {
     render_entity(&game->ball, game->renderer);
     render_entity(&game->player_one_pad, game->renderer);
     render_entity(&game->player_two_pad, game->renderer);
+
+    render_power_ups(game);
 
     free(player_one_score);
     free(player_two_score);
