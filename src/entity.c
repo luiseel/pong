@@ -82,6 +82,12 @@ void update_player_two_pad(pad_t *pad, float delta_time) {
     }
 }
 
+static float clampf(float value, float min, float max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+}
+
 static bool check_pad_edge_collision(ball_t *ball, pad_t *pad) {
     float start_y = ball->previous_position.y - pad->previous_position.y;
     float end_y = ball->position.y - pad->position.y;
@@ -106,9 +112,8 @@ static bool check_pad_edge_collision(ball_t *ball, pad_t *pad) {
     }
     float pad_velocity = movement_scale > 0.f ?
         (pad->position.y - pad->previous_position.y) / movement_scale : 0.f;
-    ball->velocity.y = 2.f * pad_velocity - ball->velocity.y;
-    if (ball->velocity.y > BALL_MAX_EDGE_SPEED_Y) ball->velocity.y = BALL_MAX_EDGE_SPEED_Y;
-    if (ball->velocity.y < -BALL_MAX_EDGE_SPEED_Y) ball->velocity.y = -BALL_MAX_EDGE_SPEED_Y;
+    ball->velocity.y = clampf(2.f * pad_velocity - ball->velocity.y,
+        -BALL_MAX_EDGE_SPEED_Y, BALL_MAX_EDGE_SPEED_Y);
     ball->position.y = pad->position.y + edge;
     ball->has_collided = true;
     return true;
@@ -143,9 +148,7 @@ bool check_collisions(ball_t *ball, pad_t *pad) {
 
     float offset = ((ball_y + ball->height / 2.f) - (pad_y + pad->height / 2.f)) /
         (pad->height / 2.f + ball->height / 2.f);
-    offset += pad->velocity.y * BALL_PAD_SPIN;
-    if (offset > 1.f) offset = 1.f;
-    if (offset < -1.f) offset = -1.f;
+    offset = clampf(offset + pad->velocity.y * BALL_PAD_SPIN, -1.f, 1.f);
     float const max_angle = BALL_MAX_BOUNCE_DEGREES * 3.14159265f / 180.f;
     float angle = offset * max_angle;
     ball->velocity.x = left_pad ? cosf(angle) : -cosf(angle);
