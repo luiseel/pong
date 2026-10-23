@@ -114,21 +114,10 @@ static void handle_title_event(game_t *game, SDL_Event const *event) {
 }
 
 static void handle_play_event(game_t *game, SDL_Event const *event) {
-    Uint8 const *keyboard = SDL_GetKeyboardState(NULL);
-
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
         game->player_one_pad.goal_velocity.y = 0;
         game->player_two_pad.goal_velocity.y = 0;
         change_scene(game, SCENE_TITLE);
-        return;
-    }
-
-    if (event->type == SDL_KEYDOWN) {
-        handle_pad_key_press(&game->player_one_pad, keyboard, 1);
-        handle_pad_key_press(&game->player_two_pad, keyboard, 2);
-    } else if (event->type == SDL_KEYUP) {
-        handle_pad_key_release(&game->player_one_pad, keyboard, 1);
-        handle_pad_key_release(&game->player_two_pad, keyboard, 2);
     }
 }
 

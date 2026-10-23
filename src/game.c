@@ -104,10 +104,6 @@ int run_game(game_t *game) {
         current_time = SDL_GetTicks();
         delta_time = (current_time - last_time) / 1000.0f;
 
-        if (delta_time > target_frame_time / 1000.0f) {
-            delta_time = target_frame_time / 1000.0f;
-        }
-
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
@@ -115,6 +111,11 @@ int run_game(game_t *game) {
             } else {
                 scene_handle_event(game, &event);
             }
+        }
+
+        if (game->current_scene != SCENE_COUNTDOWN &&
+            delta_time > target_frame_time / 1000.0f) {
+            delta_time = target_frame_time / 1000.0f;
         }
 
         scene_update(game, delta_time);
