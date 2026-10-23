@@ -31,6 +31,7 @@ int init_game(game_t *game) {
         return 1;
     }
 
+    game->target_score = MATCH_DEFAULT_TARGET;
     srand((unsigned int)time(NULL));
     reset_match(game);
     game->current_scene = SCENE_TITLE;
