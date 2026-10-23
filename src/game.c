@@ -147,16 +147,27 @@ int init_game_text(game_t *game) {
     }
     game->font = TTF_OpenFont("src/fonts/just-my-type.ttf", GAME_FONT_SIZE);
     if (game->font == NULL) {
+        TTF_Quit();
+        return 1;
+    }
+    game->menu_font = TTF_OpenFont("src/fonts/just-my-type.ttf", MENU_FONT_SIZE);
+    if (game->menu_font == NULL) {
+        terminate_game_text(game);
+        return 1;
+    }
+    game->hint_font = TTF_OpenFont("src/fonts/just-my-type.ttf", HINT_FONT_SIZE);
+    if (game->hint_font == NULL) {
+        terminate_game_text(game);
         return 1;
     }
     return 0;
 }
 
-void render_game_text(game_t *game, int x, int y, char const *text, SDL_Color color) {
+void render_game_text(game_t *game, TTF_Font *font, int x, int y, char const *text, SDL_Color color) {
     int font_width = 0;
     int font_height = 0;
 
-    SDL_Surface *surface = TTF_RenderText_Solid(game->font, text, color);
+    SDL_Surface *surface = TTF_RenderText_Solid(font, text, color);
     if (surface == NULL) {
         return;
     }
@@ -173,19 +184,24 @@ void render_game_text(game_t *game, int x, int y, char const *text, SDL_Color co
     SDL_FreeSurface(surface);
 }
 
-void render_centered_text(game_t *game, int y, char const *text, SDL_Color color) {
+void render_centered_text(game_t *game, TTF_Font *font, int y, char const *text, SDL_Color color) {
     int width;
     int height;
 
-    if (TTF_SizeText(game->font, text, &width, &height) != 0) {
+    if (TTF_SizeText(font, text, &width, &height) != 0) {
         return;
     }
 
-    render_game_text(game, (GAME_WIDTH - width) / 2, y, text, color);
+    render_game_text(game, font, (GAME_WIDTH - width) / 2, y, text, color);
 }
 
 void terminate_game_text(game_t *game) {
-    TTF_CloseFont(game->font);
+    if (game->hint_font != NULL) TTF_CloseFont(game->hint_font);
+    if (game->menu_font != NULL) TTF_CloseFont(game->menu_font);
+    if (game->font != NULL) TTF_CloseFont(game->font);
+    game->hint_font = NULL;
+    game->menu_font = NULL;
+    game->font = NULL;
     TTF_Quit();
 }
 

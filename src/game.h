@@ -23,6 +23,8 @@ struct game {
     pad_t player_one_pad;
     pad_t player_two_pad;
     TTF_Font *font;
+    TTF_Font *menu_font;
+    TTF_Font *hint_font;
     int player_one_score;
     int player_two_score; 
     Mix_Chunk *hit_sound;
@@ -35,8 +37,8 @@ void play_sounds(game_t *);
 int run_game(game_t *);
 
 int init_game_text(game_t *);
-void render_game_text(game_t *, int, int, char const *, SDL_Color);
-void render_centered_text(game_t *, int, char const *, SDL_Color);
+void render_game_text(game_t *, TTF_Font *, int, int, char const *, SDL_Color);
+void render_centered_text(game_t *, TTF_Font *, int, char const *, SDL_Color);
 void terminate_game_text(game_t *);
 
 #endif
