@@ -28,6 +28,7 @@ bool check_collisions(ball_t *, pad_t *);
 void check_wall_collisions(ball_t *, int *, int *);
 void handle_pad_key_press(pad_t *, Uint8 const *, int);
 void handle_pad_key_release(pad_t *, Uint8 const *, int);
+void handle_solo_pad_keys(pad_t *, Uint8 const *);
 void render_entity(entity_t *, SDL_Renderer *);
 
 #endif
