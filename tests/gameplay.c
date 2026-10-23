@@ -259,6 +259,54 @@ static void press_key(game_t *game, SDL_Keycode key) {
     scene_handle_event(game, &event);
 }
 
+static void check_pause_flow(void) {
+    game_t game = new_match();
+    game.player_one_score = 2;
+    game.player_two_score = 3;
+    game.power_ups.spawn_remaining = 4;
+    game.power_ups.player_one_remaining = 5;
+    game.power_ups.player_two_grow_remaining = 6;
+    game.player_two_pad.height = 100;
+    game.player_one_pad.velocity.y = 1;
+    float ball_x = game.ball.position.x;
+    float pad_y = game.player_one_pad.position.y;
+    SDL_Event repeat = {0};
+    repeat.type = SDL_KEYDOWN;
+    repeat.key.keysym.sym = SDLK_ESCAPE;
+    repeat.key.repeat = 1;
+
+    press_key(&game, SDLK_ESCAPE);
+    assert(game.current_scene == SCENE_PAUSE);
+    scene_handle_event(&game, &repeat);
+    scene_update(&game, 30);
+    assert(game.current_scene == SCENE_PAUSE);
+    assert(game.ball.position.x == ball_x);
+    assert(game.player_one_pad.position.y == pad_y);
+    assert(game.player_one_pad.velocity.y == 1);
+    assert(game.player_one_score == 2 && game.player_two_score == 3);
+    assert(game.power_ups.spawn_remaining == 4);
+    assert(game.power_ups.player_one_remaining == 5);
+    assert(game.power_ups.player_two_grow_remaining == 6);
+    assert(game.player_two_pad.height == 100);
+
+    press_key(&game, SDLK_ESCAPE);
+    scene_handle_event(&game, &repeat);
+    assert(game.current_scene == SCENE_PLAY);
+    assert(game.ball.position.x == ball_x);
+    scene_update(&game, 0.01f);
+    assert(game.ball.position.x != ball_x);
+    assert(game.power_ups.player_one_remaining < 5);
+    assert(game.player_one_score == 2 && game.player_two_score == 3);
+
+    press_key(&game, SDLK_ESCAPE);
+    press_key(&game, SDLK_RETURN);
+    assert(game.current_scene == SCENE_PLAY);
+    press_key(&game, SDLK_ESCAPE);
+    press_key(&game, SDLK_DOWN);
+    press_key(&game, SDLK_RETURN);
+    assert(game.current_scene == SCENE_TITLE);
+}
+
 static void check_match_flow(void) {
     game_t game = new_match();
     change_scene(&game, SCENE_TITLE);
@@ -321,6 +369,7 @@ int main(void) {
     assert(SDL_Init(SDL_INIT_AUDIO) == 0);
     assert(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096) == 0);
     check_match_flow();
+    check_pause_flow();
     check_spawn_weighting();
     check_pickup_lifecycle();
     check_paddle_contact();

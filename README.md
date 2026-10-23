@@ -18,7 +18,8 @@ make
 - Each new match and rematch begins with a 3, 2, 1, GO countdown; gameplay and power-up timers stay frozen until it finishes.
 - The first player to reach the selected score wins. On the winner screen, use W/S or Up/Down and Enter or Space to choose Rematch or Main menu. Rematches keep the selected winning score.
 - Play: use W/S for player one and Up/Down for player two.
-- Press Escape during setup, the countdown, a match, or on the winner or credits screen to return to the title screen.
+- Press Escape during a match to pause. Scores, positions, and power-up timers stay frozen. Press Escape again to resume, or use W/S or Up/Down and Enter or Space to choose Resume or Main Menu.
+- Press Escape during setup, the countdown, or on the winner or credits screen to return to the title screen.
 - Press Escape on the title screen to quit.
 
 ## Power-ups
