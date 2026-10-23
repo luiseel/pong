@@ -138,7 +138,7 @@ static void render_pad_power(SDL_Renderer *renderer, pad_t const *pad, float rem
     if (remaining <= 0) return;
     SDL_Rect rect = {(int)pad->position.x, (int)pad->position.y, pad->width, pad->height};
     glow(renderer, rect, 1, false);
-    SDL_Rect bar = {pad->position.x < GAME_WIDTH / 2 ? rect.x + rect.w + 5 : rect.x - 8,
+    SDL_Rect bar = {pad->position.x < GAME_WIDTH / 2 ? rect.x - 11 : rect.x + rect.w + 8,
         rect.y, 3, (int)(pad->height * remaining / POWER_UP_DURATION)};
     SDL_RenderFillRect(renderer, &bar);
 }
