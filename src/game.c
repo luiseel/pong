@@ -50,7 +50,7 @@ void reset_match(game_t *game) {
     game->ball.has_collided = false;
 
     game->player_one_pad.width = 10;
-    game->player_one_pad.height = 50;
+    game->player_one_pad.height = PADDLE_HEIGHT;
     game->player_one_pad.position.x = 15;
     game->player_one_pad.position.y = GAME_HEIGHT / 2 - 25;
     game->player_one_pad.velocity.x = 0;
@@ -59,7 +59,7 @@ void reset_match(game_t *game) {
     game->player_one_pad.goal_velocity.y = 0;
 
     game->player_two_pad.width = 10;
-    game->player_two_pad.height = 50;
+    game->player_two_pad.height = PADDLE_HEIGHT;
     game->player_two_pad.position.x = GAME_WIDTH - 10 - 15;
     game->player_two_pad.position.y = GAME_HEIGHT / 2 - 25;
     game->player_two_pad.velocity.x = 0;

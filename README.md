@@ -24,14 +24,22 @@ make
 ## Power-ups
 
 Glowing pickups spawn at the center and drift toward a player, bouncing off the
-top and bottom walls. Catch one with your paddle to gain 8 seconds of powerful
+top and bottom walls. Catch a gold pickup with your paddle to gain 8 seconds of powerful
 hits: your shots travel at 1.5× speed with a glowing trail. An ordinary return
-restores normal speed. Collecting another pickup refreshes your power duration.
+restores normal speed. Collecting another pickup of the same type refreshes its duration.
 The paddle glow and shrinking bar show how much power remains.
 
-Pickups favor the losing player: 65% when one point behind, 80% when two behind,
+Gold pickups favor the losing player: 65% when one point behind, 80% when two behind,
 and 90% when three or more behind. Tied scores give each player a 50% chance.
 The direction is chosen when the pickup spawns; you still have to catch it.
+
+Blue pickups make your paddle twice as tall for 8 seconds. They account for
+roughly 25% of spawns; gold pickups account for the other 75%. Blue pickups
+alternate between players, starting with a randomly chosen player each match,
+regardless of score or whether the previous pickup was caught. You still need
+to catch them. A blue outline and timer bar show the remaining growth time.
+Growth and powerful hits can be active together; repeated growth refreshes the
+timer without increasing the paddle further.
 
 Only one pickup appears at a time. The first spawns after 8–14 seconds, with a
 new random countdown after each collection or miss. Pickups, active paddle powers,
