@@ -16,6 +16,8 @@ struct game {
     int is_running;
     scene_id_t current_scene;
     int selected_menu_item;
+    int target_score;
+    float countdown_remaining;
     power_up_state_t power_ups;
     ball_t ball;
     pad_t player_one_pad;

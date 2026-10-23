@@ -8,7 +8,10 @@ typedef struct game game_t;
 
 typedef enum {
     SCENE_TITLE,
+    SCENE_SETUP,
+    SCENE_COUNTDOWN,
     SCENE_PLAY,
+    SCENE_WINNER,
     SCENE_CREDITS
 } scene_id_t;
 

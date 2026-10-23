@@ -14,8 +14,11 @@ make
 ## Controls
 
 - Title screen: use W/S or the arrow keys to select an option, then Enter or Space to confirm.
+- Match setup: use Left/Right or A/D to choose a winning score from 1–21 (default 5), then Enter or Space to start.
+- Each new match and rematch begins with a 3, 2, 1, GO countdown; gameplay and power-up timers stay frozen until it finishes.
+- The first player to reach the selected score wins. On the winner screen, use W/S or Up/Down and Enter or Space to choose Rematch or Main menu. Rematches keep the selected winning score.
 - Play: use W/S for player one and Up/Down for player two.
-- Press Escape during a match or on the credits screen to return to the title screen.
+- Press Escape during setup, the countdown, a match, or on the winner or credits screen to return to the title screen.
 - Press Escape on the title screen to quit.
 
 ## Power-ups

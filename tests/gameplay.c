@@ -139,7 +139,7 @@ static void check_resets_and_scenes(void) {
         scene_update(&game, 2);
         assert(game.power_ups.spawn_remaining == countdown);
         assert(game.power_ups.player_one_remaining == power_remaining);
-        change_scene(&game, SCENE_PLAY);
+        change_scene(&game, SCENE_COUNTDOWN);
         assert(game.player_one_score == 0 && game.player_two_score == 0);
         assert(!game.power_ups.active && !game.power_ups.ball_powered);
         assert(game.power_ups.player_one_remaining == 0 && game.power_ups.player_two_remaining == 0);
@@ -147,10 +147,75 @@ static void check_resets_and_scenes(void) {
     }
 }
 
+static void press_key(game_t *game, SDL_Keycode key) {
+    SDL_Event event = {0};
+    event.type = SDL_KEYDOWN;
+    event.key.keysym.sym = key;
+    scene_handle_event(game, &event);
+}
+
+static void check_match_flow(void) {
+    game_t game = new_match();
+    change_scene(&game, SCENE_TITLE);
+    press_key(&game, SDLK_RETURN);
+    assert(game.current_scene == SCENE_SETUP);
+    assert(game.target_score == MATCH_DEFAULT_TARGET);
+    for (int i = 0; i < 30; i++) press_key(&game, SDLK_LEFT);
+    assert(game.target_score == 1);
+    for (int i = 0; i < 30; i++) press_key(&game, SDLK_RIGHT);
+    assert(game.target_score == 21);
+    press_key(&game, SDLK_LEFT);
+    assert(game.target_score == 20);
+    press_key(&game, SDLK_RETURN);
+    assert(game.current_scene == SCENE_COUNTDOWN);
+    float ball_x = game.ball.position.x;
+    float power_timer = game.power_ups.spawn_remaining;
+    scene_update(&game, 3);
+    assert(game.current_scene == SCENE_COUNTDOWN);
+    assert(game.ball.position.x == ball_x);
+    assert(game.power_ups.spawn_remaining == power_timer);
+    scene_update(&game, 0.5f);
+    assert(game.current_scene == SCENE_PLAY);
+    scene_update(&game, 0.01f);
+    assert(game.ball.position.x != ball_x);
+
+    for (int player = 0; player < 2; player++) {
+        game.target_score = 2;
+        change_scene(&game, SCENE_COUNTDOWN);
+        scene_update(&game, MATCH_COUNTDOWN_SECONDS);
+        for (int point = 1; point <= 2; point++) {
+            game.ball.position.x = player == 0 ? GAME_WIDTH + 1 : -20;
+            scene_update(&game, 0.01f);
+            assert((player == 0 ? game.player_one_score : game.player_two_score) == point);
+            assert(game.current_scene == (point == 2 ? SCENE_WINNER : SCENE_PLAY));
+        }
+        ball_x = game.ball.position.x;
+        power_timer = game.power_ups.spawn_remaining;
+        scene_update(&game, 10);
+        assert(game.ball.position.x == ball_x);
+        assert(game.power_ups.spawn_remaining == power_timer);
+        press_key(&game, SDLK_RETURN);
+        assert(game.current_scene == SCENE_COUNTDOWN);
+        assert(game.player_one_score == 0 && game.player_two_score == 0);
+        assert(game.target_score == 2);
+        press_key(&game, SDLK_ESCAPE);
+        assert(game.current_scene == SCENE_TITLE);
+    }
+    change_scene(&game, SCENE_WINNER);
+    press_key(&game, SDLK_DOWN);
+    press_key(&game, SDLK_RETURN);
+    assert(game.current_scene == SCENE_TITLE);
+    press_key(&game, SDLK_RETURN);
+    assert(game.target_score == 2);
+    press_key(&game, SDLK_ESCAPE);
+    assert(game.current_scene == SCENE_TITLE);
+}
+
 int main(void) {
     srand(42);
     assert(SDL_Init(SDL_INIT_AUDIO) == 0);
     assert(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096) == 0);
+    check_match_flow();
     check_spawn_weighting();
     check_pickup_lifecycle();
     check_powered_rally();
