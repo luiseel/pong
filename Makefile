@@ -14,10 +14,19 @@ OBJS = $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRCS))
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) $(SDL2_FLAGS) -o $(BIN_DIR)/$@ $^
+	$(CC) $(CFLAGS) $(SDL2_FLAGS) -o $(BIN_DIR)/$@ $^ -lm
 
 $(BIN_DIR)/%.o: $(SRC_DIR)/%.c
-	$(CC) $(CFLAGS) $(SDL2_FLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(SDL2_FLAGS) -MMD -MP -c -o $@ $<
 
 clean:
-	$(RM) $(BIN_DIR)/$(TARGET) $(OBJS)
+	$(RM) $(BIN_DIR)/$(TARGET) $(OBJS) $(OBJS:.o=.d) bin/gameplay-test
+
+-include $(OBJS:.o=.d)
+
+.PHONY: test
+test: bin/gameplay-test
+	SDL_AUDIODRIVER=dummy ./bin/gameplay-test
+
+bin/gameplay-test: tests/gameplay.c $(filter-out bin/main.o,$(OBJS))
+	$(CC) $(CFLAGS) -Isrc $(SDL2_FLAGS) -o $@ $^ -lm
