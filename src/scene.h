@@ -11,6 +11,7 @@ typedef enum {
     SCENE_SETUP,
     SCENE_COUNTDOWN,
     SCENE_PLAY,
+    SCENE_PAUSE,
     SCENE_WINNER,
     SCENE_CREDITS
 } scene_id_t;

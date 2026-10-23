@@ -71,6 +71,7 @@ void change_scene(game_t *game, scene_id_t next_scene) {
             break;
         case SCENE_PLAY:
             break;
+        case SCENE_PAUSE:
         case SCENE_WINNER:
             game->selected_menu_item = 0;
             break;
@@ -115,10 +116,30 @@ static void handle_title_event(game_t *game, SDL_Event const *event) {
 }
 
 static void handle_play_event(game_t *game, SDL_Event const *event) {
-    if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
-        game->player_one_pad.goal_velocity.y = 0;
-        game->player_two_pad.goal_velocity.y = 0;
-        change_scene(game, SCENE_TITLE);
+    if (event->type == SDL_KEYDOWN && !event->key.repeat &&
+        event->key.keysym.sym == SDLK_ESCAPE) {
+        change_scene(game, SCENE_PAUSE);
+    }
+}
+
+static void handle_pause_event(game_t *game, SDL_Event const *event) {
+    if (event->type != SDL_KEYDOWN || event->key.repeat) return;
+    switch (event->key.keysym.sym) {
+        case SDLK_UP:
+        case SDLK_DOWN:
+        case SDLK_w:
+        case SDLK_s:
+            game->selected_menu_item = 1 - game->selected_menu_item;
+            break;
+        case SDLK_RETURN:
+        case SDLK_SPACE:
+            change_scene(game, game->selected_menu_item == 0 ? SCENE_PLAY : SCENE_TITLE);
+            break;
+        case SDLK_ESCAPE:
+            change_scene(game, SCENE_PLAY);
+            break;
+        default:
+            break;
     }
 }
 
@@ -196,6 +217,9 @@ void scene_handle_event(game_t *game, SDL_Event const *event) {
             break;
         case SCENE_PLAY:
             handle_play_event(game, event);
+            break;
+        case SCENE_PAUSE:
+            handle_pause_event(game, event);
             break;
         case SCENE_CREDITS:
             handle_credits_event(game, event);
@@ -319,6 +343,23 @@ static void render_play(game_t *game) {
     free(player_two_score);
 }
 
+static void render_pause(game_t *game) {
+    render_play(game);
+    SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(game->renderer, 39, 39, 39, 220);
+    SDL_RenderFillRect(game->renderer, NULL);
+    SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_NONE);
+
+    render_centered_text(game, game->font, 70, "PAUSED", normal_color);
+    render_centered_text(game, game->menu_font, 210, "RESUME",
+        game->selected_menu_item == 0 ? selected_color : normal_color);
+    render_centered_text(game, game->menu_font, 274, "MAIN MENU",
+        game->selected_menu_item == 1 ? selected_color : normal_color);
+    render_selection_indicator(game, game->selected_menu_item == 0 ? 210 : 274,
+        game->selected_menu_item == 0 ? "RESUME" : "MAIN MENU");
+    render_centered_text(game, game->hint_font, 380, "ESC TO RESUME", normal_color);
+}
+
 static void render_credits(game_t *game) {
     render_centered_text(game, game->font, 70, "CREDITS", normal_color);
     render_centered_text(game, game->menu_font, 210, "LUISEEL", normal_color);
@@ -387,6 +428,9 @@ void scene_render(game_t *game) {
             break;
         case SCENE_PLAY:
             render_play(game);
+            break;
+        case SCENE_PAUSE:
+            render_pause(game);
             break;
         case SCENE_CREDITS:
             render_credits(game);
