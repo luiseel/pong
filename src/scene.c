@@ -32,6 +32,12 @@ static struct {
     { "SERPENT", 240 },
 };
 
+// F1, or the key left of 1 on any layout: Mac F-keys need fn by default
+static bool is_debug_key(SDL_Event const *event) {
+    return event->key.keysym.sym == SDLK_F1 ||
+        event->key.keysym.scancode == SDL_SCANCODE_GRAVE;
+}
+
 static void render_selection_indicator(game_t *game, int y, char const *text) {
     int text_width;
     int text_height;
@@ -144,12 +150,13 @@ static void handle_title_event(game_t *game, SDL_Event const *event) {
 static void handle_play_event(game_t *game, SDL_Event const *event) {
     if (event->type != SDL_KEYDOWN || event->key.repeat) return;
     bool solo = game->mode == MODE_PVC;
+    if (is_debug_key(event)) {
+        if (game->debug) change_scene(game, SCENE_DEBUG);
+        return;
+    }
     switch (event->key.keysym.sym) {
         case SDLK_ESCAPE:
             change_scene(game, SCENE_PAUSE);
-            break;
-        case SDLK_F1:
-            if (game->debug) change_scene(game, SCENE_DEBUG);
             break;
         case SDLK_a:
             select_power_up(game, 1);
@@ -194,6 +201,10 @@ static void handle_pause_event(game_t *game, SDL_Event const *event) {
 
 static void handle_debug_event(game_t *game, SDL_Event const *event) {
     if (event->type != SDL_KEYDOWN || event->key.repeat) return;
+    if (is_debug_key(event)) {
+        change_scene(game, SCENE_PLAY);
+        return;
+    }
     switch (event->key.keysym.sym) {
         case SDLK_UP:
         case SDLK_w:
@@ -217,7 +228,6 @@ static void handle_debug_event(game_t *game, SDL_Event const *event) {
             change_scene(game, SCENE_PLAY);
             break;
         case SDLK_ESCAPE:
-        case SDLK_F1:
             change_scene(game, SCENE_PLAY);
             break;
         default:

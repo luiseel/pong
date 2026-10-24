@@ -62,10 +62,11 @@ at normal speed. Starting a new match clears all power-ups. Power timers run onl
 ## Debug menu
 
 Start the game with `./bin/pong --debug` to turn on the debug menu. During a match,
-press F1 to open it; play stays frozen while it is open. Use W/S or Up/Down to choose
+press F1 or the key left of 1 (` on a US keyboard) to open it; play stays frozen
+while it is open. On a Mac, F1 needs fn unless F-keys are set as standard function keys. Use W/S or Up/Down to choose
 a speed, grow, or serpent pickup, and Left/Right or A/D to choose the player it drifts
 toward. Press Enter or Space to spawn it at the center; it replaces any pickup already
-in the field and does not change the normal spawn countdown. Press Escape or F1 to
-close the menu without a spawn. Without `--debug`, F1 does nothing.
+in the field and does not change the normal spawn countdown. Press Escape or the
+same key again to close the menu without a spawn. Without `--debug`, these keys do nothing.
 
 Run the gameplay checks with `make test`.

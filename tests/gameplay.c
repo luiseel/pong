@@ -781,13 +781,23 @@ static void check_debug_menu(void) {
         assert(game.power_ups.kind == (power_up_kind_t)kind && game.power_ups.velocity.x < 0);
     }
 
-    // Escape and F1 close the menu without a spawn
+    // Escape, F1, and the key left of 1 close the menu without a spawn
     game.power_ups.active = false;
     press_key(&game, SDLK_F1);
     press_key(&game, SDLK_ESCAPE);
     assert(game.current_scene == SCENE_PLAY && !game.power_ups.active);
     press_key(&game, SDLK_F1);
     press_key(&game, SDLK_F1);
+    assert(game.current_scene == SCENE_PLAY && !game.power_ups.active);
+
+    // The key left of 1 is matched by position, whatever character it types
+    SDL_Event grave = {0};
+    grave.type = SDL_KEYDOWN;
+    grave.key.keysym.scancode = SDL_SCANCODE_GRAVE;
+    grave.key.keysym.sym = SDLK_BACKSLASH;
+    scene_handle_event(&game, &grave);
+    assert(game.current_scene == SCENE_DEBUG);
+    scene_handle_event(&game, &grave);
     assert(game.current_scene == SCENE_PLAY && !game.power_ups.active);
 }
 
