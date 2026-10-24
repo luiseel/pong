@@ -381,10 +381,10 @@ void scene_update(game_t *game, float delta_time) {
             update_held_ball(game, step);
             continue;
         }
-        // A charged shot is faster than a speed boost, so it wins
+        // A speed boost is faster than a charged shot, so it wins
         update_ball(&game->ball, step,
-            game->power_ups.ball_charged ? POWER_UP_CHARGE_MULTIPLIER :
-            game->power_ups.ball_powered ? POWER_UP_BALL_MULTIPLIER : 1.f);
+            game->power_ups.ball_powered ? POWER_UP_BALL_MULTIPLIER :
+            game->power_ups.ball_charged ? POWER_UP_CHARGE_MULTIPLIER : 1.f);
         weave_ball(game);
         if (check_collisions(&game->ball, &game->player_one_pad)) {
             hit_ball(game, 1);

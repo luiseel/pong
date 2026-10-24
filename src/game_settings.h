@@ -16,12 +16,12 @@
 #define POWER_UP_CHARGE_MULTIPLIER 2.2f // ball speed of the released shot
 #define POWER_UP_SERPENT_AMPLITUDE 35.f   // pixels to each side of the straight path
 #define POWER_UP_SERPENT_WAVELENGTH 160.f // pixels of x travel per full wave
-#define POWER_UP_SPAWN_MIN 8.f
-#define POWER_UP_SPAWN_MAX 14.f
+#define POWER_UP_SPAWN_MIN 4.f
+#define POWER_UP_SPAWN_MAX 8.f
 #define POWER_UP_SPEED 150.f
 #define POWER_UP_SIZE 12
 #define POWER_UP_DURATION 8.f
-#define POWER_UP_BALL_MULTIPLIER 1.5f
+#define POWER_UP_BALL_MULTIPLIER 2.5f
 #define POWER_UP_WEIGHT_STEP 15
 #define POWER_UP_WEIGHT_CAP 90
 #define POWER_UP_TRAIL_LENGTH 8

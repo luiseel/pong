@@ -78,7 +78,7 @@ static void check_pickup_lifecycle(void) {
         assert(!game.power_ups.pickup.active);
         assert(inventory->count == 1 && inventory->slots[0] == kind);
         assert(*timer < 2);
-        assert(game.power_ups.spawn_remaining >= 8 && game.power_ups.spawn_remaining <= 14);
+        assert(game.power_ups.spawn_remaining >= POWER_UP_SPAWN_MIN && game.power_ups.spawn_remaining <= POWER_UP_SPAWN_MAX);
         use_power_up(&game, player + 1);
         assert(*timer == 8.f && inventory->count == 0);
         update_power_ups(&game, 1);
@@ -373,7 +373,7 @@ static void check_charge_blast(void) {
     scene_update(&game, 1.f / 60.f);
     assert(game.power_ups.ball_held_by == 0 && !game.power_ups.ball_charged);
 
-    // With speed, the charge speed wins; a serpent used during the hold makes the shot weave
+    // With speed, the faster speed boost wins; a serpent used during the hold makes the shot weave
     game.power_ups.player_one_charge_remaining = 8;
     game.power_ups.player_one_remaining = 8;
     aim_at_pad(&game, 0);
@@ -386,7 +386,7 @@ static void check_charge_blast(void) {
     x = game.ball.position.x;
     y = game.ball.position.y;
     scene_update(&game, 0.01f);
-    assert(fabsf(game.ball.position.x - (x + BALL_SPEED * POWER_UP_CHARGE_MULTIPLIER * 0.01f)) < 0.01f);
+    assert(fabsf(game.ball.position.x - (x + BALL_SPEED * POWER_UP_BALL_MULTIPLIER * 0.01f)) < 0.01f);
     assert(game.ball.position.y != y);
 
     // A point clears the charged shot
@@ -455,7 +455,7 @@ static void check_resets_and_scenes(void) {
         assert(game.player_one_score == 0 && game.player_two_score == 0);
         assert(!game.power_ups.pickup.active && !game.power_ups.ball_powered);
         assert(game.power_ups.player_one_remaining == 0 && game.power_ups.player_two_remaining == 0);
-        assert(game.power_ups.spawn_remaining >= 8 && game.power_ups.spawn_remaining <= 14);
+        assert(game.power_ups.spawn_remaining >= POWER_UP_SPAWN_MIN && game.power_ups.spawn_remaining <= POWER_UP_SPAWN_MAX);
     }
 }
 

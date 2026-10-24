@@ -66,7 +66,7 @@ up to 3 power-ups. A pickup caught with 3 stored power-ups is lost. The slots be
 score show the stored power-ups; the outlined slot is the selected one. Select a slot,
 then use it to start its effect.
 
-A gold power-up gives 8 seconds of powerful hits: your shots travel at 1.5× speed
+A gold power-up gives 8 seconds of powerful hits: your shots travel at 2.5× speed
 with a glowing trail. An ordinary return restores normal speed. Using another power-up of the same type refreshes its duration.
 The paddle glow and shrinking bar show how much power remains.
 
@@ -86,7 +86,7 @@ Green power-ups give 8 seconds of serpent hits: your shots weave up and down in 
 wave as they cross the field, with a green trail. An ordinary return straightens
 the ball again. Green pickups alternate between players in the same way as blue
 pickups. A green timer bar beside the paddle shows the remaining time. Serpent and
-powerful hits can be active together: the ball then weaves and moves at 1.5× speed.
+powerful hits can be active together: the ball then weaves and moves at 2.5× speed.
 The computer uses a serpent power-up when the ball comes toward it.
 
 Pink power-ups give one charge blast. Use it to arm your paddle for 8 seconds. A pink
@@ -94,12 +94,12 @@ bar behind the paddle shows the time left. If no ball hits the paddle in
 that time, the charge is lost. The next ball that hits the armed paddle sticks to its
 center and follows the paddle for 3 seconds while it pulses faster. Then the ball
 shoots straight ahead at 2.2× speed with a pink trail. A return by your opponent
-restores normal speed. With powerful hits active, the charge speed is used; with
+restores normal speed. With powerful hits active, the faster powerful-hit speed is used; with
 serpent hits active, the charged shot also weaves. Other timers and pickups continue
 during the hold. Pink pickups alternate between players in the same way as blue
 pickups. The computer arms a charge when the ball comes toward it.
 
-Normal play spawns one pickup at a time. The first spawns after 8–14 seconds, with a
+Normal play spawns one pickup at a time. The first spawns after 4–8 seconds, with a
 new random countdown after each collection or miss. Pickups, active paddle powers,
 stored power-ups, and the spawn countdown continue across points; each new serve starts
 at normal speed. Starting a new match clears all power-ups. Power timers run only during play.
