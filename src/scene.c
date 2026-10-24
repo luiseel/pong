@@ -308,18 +308,16 @@ void scene_update(game_t *game, float delta_time) {
         weave_ball(game);
         if (check_collisions(&game->ball, &game->player_one_pad)) {
             game->power_ups.ball_powered = game->power_ups.player_one_remaining > 0;
-            game->power_ups.ball_serpent = game->power_ups.player_one_serpent_remaining > 0;
-            game->power_ups.serpent_distance = 0;
+            set_ball_serpent(game, game->power_ups.player_one_serpent_remaining > 0);
         }
         if (check_collisions(&game->ball, &game->player_two_pad)) {
             game->power_ups.ball_powered = game->power_ups.player_two_remaining > 0;
-            game->power_ups.ball_serpent = game->power_ups.player_two_serpent_remaining > 0;
-            game->power_ups.serpent_distance = 0;
+            set_ball_serpent(game, game->power_ups.player_two_serpent_remaining > 0);
         }
         check_wall_collisions(&game->ball, &game->player_one_score, &game->player_two_score);
         if (old_one_score != game->player_one_score || old_two_score != game->player_two_score) {
             game->power_ups.ball_powered = false;
-            game->power_ups.ball_serpent = false;
+            set_ball_serpent(game, false);
             game->power_ups.trail_count = 0;
             if (game->target_score > 0 &&
                 (game->player_one_score >= game->target_score ||

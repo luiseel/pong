@@ -149,16 +149,32 @@ void update_power_ups(game_t *game, float delta_time) {
     }
 }
 
+// Start or stop the weave for a new hit
+void set_ball_serpent(game_t *game, bool serpent) {
+    game->power_ups.ball_serpent = serpent;
+    game->power_ups.serpent_distance = 0;
+    game->power_ups.serpent_side = 1;
+}
+
 // Shift the ball sideways along a sine wave of its x travel since the last hit.
 // The phase follows distance, so the wave keeps its shape at any ball speed.
+// At a wall the whole path, straight part and wave, is mirrored.
 void weave_ball(game_t *game) {
     power_up_state_t *power = &game->power_ups;
+    ball_t *ball = &game->ball;
     if (!power->ball_serpent) return;
     float const k = 2.f * (float)M_PI / POWER_UP_SERPENT_WAVELENGTH;
     float before = sinf(k * power->serpent_distance);
-    power->serpent_distance += fabsf(game->ball.position.x - game->ball.previous_position.x);
-    game->ball.position.y += POWER_UP_SERPENT_AMPLITUDE *
+    power->serpent_distance += fabsf(ball->position.x - ball->previous_position.x);
+    ball->position.y += power->serpent_side * POWER_UP_SERPENT_AMPLITUDE *
         (sinf(k * power->serpent_distance) - before);
+    float bottom = GAME_HEIGHT - ball->height;
+    if (ball->position.y < 0 || ball->position.y > bottom) {
+        ball->position.y = ball->position.y < 0 ? -ball->position.y :
+            2 * bottom - ball->position.y;
+        ball->velocity.y = -ball->velocity.y;
+        power->serpent_side = -power->serpent_side;
+    }
 }
 
 void record_power_trail(game_t *game) {

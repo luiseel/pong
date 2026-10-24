@@ -31,6 +31,7 @@ typedef struct {
     bool ball_powered;
     bool ball_serpent;
     float serpent_distance;
+    float serpent_side;   // 1, or -1 after the wave bounces off a wall
     power_up_inventory_t player_one_inventory;
     power_up_inventory_t player_two_inventory;
     vector_2d_t trail[POWER_UP_TRAIL_LENGTH];
@@ -41,6 +42,7 @@ void reset_power_ups(struct game *);
 void update_power_ups(struct game *, float);
 void select_power_up(struct game *, int);
 void use_power_up(struct game *, int);
+void set_ball_serpent(struct game *, bool);
 void weave_ball(struct game *);
 void record_power_trail(struct game *);
 void render_power_ups(struct game *);
