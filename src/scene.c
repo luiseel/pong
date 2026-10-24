@@ -108,28 +108,21 @@ void change_scene(game_t *game, scene_id_t next_scene) {
     }
 }
 
-static void handle_title_event(game_t *game, SDL_Event const *event) {
-    if (event->type != SDL_KEYDOWN || event->key.repeat) {
-        return;
-    }
-
-    switch (event->key.keysym.sym) {
-        case SDLK_UP:
-        case SDLK_w:
+static void handle_title_action(game_t *game, input_action_t const *action) {
+    switch (action->kind) {
+        case INPUT_UP:
             game->selected_menu_item--;
             if (game->selected_menu_item < 0) {
                 game->selected_menu_item = MENU_ITEM_COUNT - 1;
             }
             break;
-        case SDLK_DOWN:
-        case SDLK_s:
+        case INPUT_DOWN:
             game->selected_menu_item++;
             if (game->selected_menu_item >= MENU_ITEM_COUNT) {
                 game->selected_menu_item = 0;
             }
             break;
-        case SDLK_RETURN:
-        case SDLK_SPACE:
+        case INPUT_CONFIRM:
             if (game->selected_menu_item == 0) {
                 game->mode = MODE_PVC;
                 change_scene(game, SCENE_SETUP);
@@ -140,7 +133,7 @@ static void handle_title_event(game_t *game, SDL_Event const *event) {
                 change_scene(game, SCENE_CREDITS);
             }
             break;
-        case SDLK_ESCAPE:
+        case INPUT_BACK:
             game->is_running = FALSE;
             break;
         default:
@@ -148,33 +141,21 @@ static void handle_title_event(game_t *game, SDL_Event const *event) {
     }
 }
 
-static void handle_play_event(game_t *game, SDL_Event const *event) {
-    if (event->type != SDL_KEYDOWN || event->key.repeat) return;
-    bool solo = game->mode == MODE_PVC;
-    switch (event->key.keysym.sym) {
-        case SDLK_ESCAPE:
+static void handle_play_action(game_t *game, input_action_t const *action) {
+    switch (action->kind) {
+        case INPUT_PAUSE:
             change_scene(game, SCENE_PAUSE);
             break;
-        case SDLK_F1:
+        case INPUT_DEBUG:
             if (game->debug) change_scene(game, SCENE_DEBUG);
             break;
-        case SDLK_a:
-            select_power_up(game, 1);
+        case INPUT_SELECT_POWER:
+            select_power_up(game, action->player);
             break;
-        case SDLK_d:
-            use_power_up(game, 1);
+        case INPUT_USE_POWER:
+            use_power_up(game, action->player);
             break;
-        case SDLK_SPACE:
-            if (solo) use_power_up(game, 1);
-            break;
-        case SDLK_LEFT:
-            if (!solo) use_power_up(game, 2);
-            break;
-        case SDLK_RIGHT:
-            if (!solo) select_power_up(game, 2);
-            break;
-        default:
-            break;
+        default: break;
     }
 }
 
@@ -186,70 +167,59 @@ static void resume_game(game_t *game) {
     } else change_scene(game, SCENE_PLAY);
 }
 
-static void handle_pause_event(game_t *game, SDL_Event const *event) {
-    if (event->type != SDL_KEYDOWN || event->key.repeat) return;
+static void handle_pause_action(game_t *game, input_action_t const *action) {
     int count = game->mode == MODE_PVC ? 3 : 4;
-    switch (event->key.keysym.sym) {
-        case SDLK_UP:
-        case SDLK_w:
+    switch (action->kind) {
+        case INPUT_UP:
             game->selected_menu_item = (game->selected_menu_item + count - 1) % count;
             break;
-        case SDLK_DOWN:
-        case SDLK_s:
+        case INPUT_DOWN:
             game->selected_menu_item = (game->selected_menu_item + 1) % count;
             break;
-        case SDLK_LEFT:
-        case SDLK_a:
-        case SDLK_RIGHT:
-        case SDLK_d:
+        case INPUT_LEFT:
+        case INPUT_RIGHT:
             if (game->selected_menu_item >= 2)
                 input_cycle_device(&game->input, game->selected_menu_item - 2,
-                    event->key.keysym.sym == SDLK_LEFT || event->key.keysym.sym == SDLK_a ? -1 : 1,
+                    action->kind == INPUT_LEFT ? -1 : 1,
                     game->mode == MODE_PVC);
             break;
-        case SDLK_RETURN:
-        case SDLK_SPACE:
+        case INPUT_CONFIRM:
             if (game->selected_menu_item == 0) resume_game(game);
             if (game->selected_menu_item == 1) change_scene(game, SCENE_TITLE);
             break;
-        case SDLK_ESCAPE:
+        case INPUT_PAUSE:
+        case INPUT_BACK:
             resume_game(game);
             break;
         default: break;
     }
 }
 
-static void handle_debug_event(game_t *game, SDL_Event const *event) {
-    if (event->type != SDL_KEYDOWN || event->key.repeat) return;
-    switch (event->key.keysym.sym) {
-        case SDLK_UP:
-        case SDLK_w:
+static void handle_debug_action(game_t *game, input_action_t const *action) {
+    switch (action->kind) {
+        case INPUT_UP:
             game->selected_menu_item = (game->selected_menu_item + DEBUG_ITEM_COUNT - 1) %
                 DEBUG_ITEM_COUNT;
             break;
-        case SDLK_DOWN:
-        case SDLK_s:
+        case INPUT_DOWN:
             game->selected_menu_item = (game->selected_menu_item + 1) % DEBUG_ITEM_COUNT;
             break;
-        case SDLK_LEFT:
-        case SDLK_RIGHT:
-        case SDLK_a:
-        case SDLK_d:
+        case INPUT_LEFT:
+        case INPUT_RIGHT:
             game->debug_target_right = !game->debug_target_right;
             break;
-        case SDLK_RETURN:
-        case SDLK_SPACE:
+        case INPUT_CONFIRM:
             debug_spawn_power_up(game, (power_up_kind_t)game->selected_menu_item,
                 game->debug_target_right ? 2 : 1);
             change_scene(game, SCENE_PLAY);
             break;
-        case SDLK_g:
+        case INPUT_DEBUG_GIVE:
             debug_give_power_up(game, (power_up_kind_t)game->selected_menu_item,
                 game->debug_target_right ? 2 : 1);
             change_scene(game, SCENE_PLAY);
             break;
-        case SDLK_ESCAPE:
-        case SDLK_F1:
+        case INPUT_BACK:
+        case INPUT_DEBUG:
             change_scene(game, SCENE_PLAY);
             break;
         default:
@@ -257,34 +227,25 @@ static void handle_debug_event(game_t *game, SDL_Event const *event) {
     }
 }
 
-static void handle_credits_event(game_t *game, SDL_Event const *event) {
-    if (event->type != SDL_KEYDOWN) {
-        return;
-    }
-
-    if (event->key.keysym.sym == SDLK_ESCAPE ||
-        event->key.keysym.sym == SDLK_BACKSPACE) {
+static void handle_credits_action(game_t *game, input_action_t const *action) {
+    if (action->kind == INPUT_BACK ||
+        action->kind == INPUT_CREDITS_BACK) {
         change_scene(game, SCENE_TITLE);
     }
 }
 
-static void handle_setup_event(game_t *game, SDL_Event const *event) {
-    if (event->type != SDL_KEYDOWN || event->key.repeat) return;
+static void handle_setup_action(game_t *game, input_action_t const *action) {
     int count = game->mode == MODE_PVC ? 2 : 3;
-    switch (event->key.keysym.sym) {
-        case SDLK_UP:
-        case SDLK_w:
+    switch (action->kind) {
+        case INPUT_UP:
             game->selected_menu_item = (game->selected_menu_item + count - 1) % count;
             break;
-        case SDLK_DOWN:
-        case SDLK_s:
+        case INPUT_DOWN:
             game->selected_menu_item = (game->selected_menu_item + 1) % count;
             break;
-        case SDLK_LEFT:
-        case SDLK_a:
-        case SDLK_RIGHT:
-        case SDLK_d: {
-            int direction = event->key.keysym.sym == SDLK_LEFT || event->key.keysym.sym == SDLK_a ? -1 : 1;
+        case INPUT_LEFT:
+        case INPUT_RIGHT: {
+            int direction = action->kind == INPUT_LEFT ? -1 : 1;
             if (game->selected_menu_item == 0) {
                 game->target_score += direction;
                 if (game->target_score < 1) game->target_score = 1;
@@ -293,32 +254,27 @@ static void handle_setup_event(game_t *game, SDL_Event const *event) {
                 game->mode == MODE_PVC);
             break;
         }
-        case SDLK_RETURN:
-        case SDLK_SPACE:
+        case INPUT_CONFIRM:
             if (input_ready(&game->input, game->mode == MODE_PVC)) change_scene(game, SCENE_COUNTDOWN);
             break;
-        case SDLK_ESCAPE:
+        case INPUT_BACK:
             change_scene(game, SCENE_TITLE);
             break;
         default: break;
     }
 }
 
-static void handle_winner_event(game_t *game, SDL_Event const *event) {
-    if (event->type != SDL_KEYDOWN || event->key.repeat) return;
-    switch (event->key.keysym.sym) {
-        case SDLK_UP:
-        case SDLK_DOWN:
-        case SDLK_w:
-        case SDLK_s:
+static void handle_winner_action(game_t *game, input_action_t const *action) {
+    switch (action->kind) {
+        case INPUT_UP:
+        case INPUT_DOWN:
             game->selected_menu_item = 1 - game->selected_menu_item;
             break;
-        case SDLK_RETURN:
-        case SDLK_SPACE:
+        case INPUT_CONFIRM:
             change_scene(game, game->selected_menu_item == 0 ?
                 (input_ready(&game->input, game->mode == MODE_PVC) ? SCENE_COUNTDOWN : SCENE_SETUP) : SCENE_TITLE);
             break;
-        case SDLK_ESCAPE:
+        case INPUT_BACK:
             change_scene(game, SCENE_TITLE);
             break;
         default:
@@ -336,41 +292,38 @@ void scene_handle_event(game_t *game, SDL_Event const *event) {
         change_scene(game, SCENE_PAUSE);
         return;
     }
-    SDL_Event translated;
-    if (!input_translate(&game->input, event, game->current_scene == SCENE_PLAY,
-        game->mode == MODE_PVC, &translated)) return;
-    if (event->type == SDL_CONTROLLERBUTTONDOWN &&
-        event->cbutton.button == SDL_CONTROLLER_BUTTON_START) {
-        if (game->current_scene == SCENE_COUNTDOWN) { change_scene(game, SCENE_PAUSE); return; }
-        if (game->current_scene != SCENE_PLAY && game->current_scene != SCENE_PAUSE) return;
-    }
-    event = &translated;
+    input_action_t action;
+    if (input_translate(&game->input, event, game->current_scene == SCENE_PLAY,
+        game->mode == MODE_PVC, &action)) scene_handle_action(game, &action);
+}
+
+void scene_handle_action(game_t *game, input_action_t const *action) {
     switch (game->current_scene) {
         case SCENE_TITLE:
-            handle_title_event(game, event);
+            handle_title_action(game, action);
             break;
         case SCENE_SETUP:
-            handle_setup_event(game, event);
+            handle_setup_action(game, action);
             break;
         case SCENE_COUNTDOWN:
-            if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
+            if (action->kind == INPUT_BACK) {
                 change_scene(game, SCENE_TITLE);
-            }
+            } else if (action->kind == INPUT_PAUSE) change_scene(game, SCENE_PAUSE);
             break;
         case SCENE_WINNER:
-            handle_winner_event(game, event);
+            handle_winner_action(game, action);
             break;
         case SCENE_PLAY:
-            handle_play_event(game, event);
+            handle_play_action(game, action);
             break;
         case SCENE_PAUSE:
-            handle_pause_event(game, event);
+            handle_pause_action(game, action);
             break;
         case SCENE_CREDITS:
-            handle_credits_event(game, event);
+            handle_credits_action(game, action);
             break;
         case SCENE_DEBUG:
-            handle_debug_event(game, event);
+            handle_debug_action(game, action);
             break;
     }
 }

@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 static void pump(game_t *game) {
     SDL_Event event;
@@ -36,12 +37,43 @@ static void button(game_t *game, SDL_Joystick *stick, int code) {
     pump(game);
 }
 
+static void capture_unmapped(void *userdata, int category, SDL_LogPriority priority, char const *message) {
+    (void)category;
+    (void)priority;
+    if (strstr(message, "Unmapped controller: Pong unmapped") && strstr(message, "gamecontrollerdb.txt"))
+        (*(int *)userdata)++;
+}
+
+static void check_unmapped_hotplug(game_t *game) {
+    SDL_LogOutputFunction previous;
+    void *previous_data;
+    SDL_LogGetOutputFunction(&previous, &previous_data);
+    int diagnostics = 0;
+    SDL_LogSetOutputFunction(capture_unmapped, &diagnostics);
+    SDL_VirtualJoystickDesc desc = {0};
+    desc.version = SDL_VIRTUAL_JOYSTICK_DESC_VERSION;
+    desc.type = SDL_JOYSTICK_TYPE_FLIGHT_STICK;
+    desc.naxes = 2;
+    desc.nbuttons = 2;
+    desc.vendor_id = 0x1209;
+    desc.product_id = 3;
+    desc.name = "Pong unmapped";
+    int index = SDL_JoystickAttachVirtualEx(&desc);
+    assert(index >= 0 && !SDL_IsGameController(index));
+    pump(game);
+    assert(diagnostics == 1);
+    assert(SDL_JoystickDetachVirtual(index) == 0);
+    pump(game);
+    SDL_LogSetOutputFunction(previous, previous_data);
+}
+
 int main(void) {
-    SDL_SetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT, "0x1209/0x0001,0x1209/0x0002");
+    SDL_SetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT, "0x1209/0x0001,0x1209/0x0002,0x1209/0x0003");
     assert(SDL_Init(SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) == 0);
     assert(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096) == 0);
     game_t game = {0};
     input_init(&game.input);
+    check_unmapped_hotplug(&game);
     game.mode = MODE_PVP;
     change_scene(&game, SCENE_TITLE);
     int first = attach("Pong test one", 1);
@@ -53,11 +85,11 @@ int main(void) {
     button(&game, one, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
     button(&game, one, SDL_CONTROLLER_BUTTON_A);
     assert(game.current_scene == SCENE_SETUP && game.mode == MODE_PVP);
-    SDL_Event menu_event;
+    input_action_t menu_event;
     assert(SDL_JoystickSetVirtualAxis(one, SDL_CONTROLLER_AXIS_LEFTY, 22000) == 0);
     pump(&game);
     assert(input_menu_repeat(&game.input, &menu_event));
-    scene_handle_event(&game, &menu_event);
+    scene_handle_action(&game, &menu_event);
     assert(game.selected_menu_item == 1);
     assert(!input_menu_repeat(&game.input, &menu_event));
     assert(SDL_JoystickSetVirtualAxis(one, SDL_CONTROLLER_AXIS_LEFTY, 0) == 0);

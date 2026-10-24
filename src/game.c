@@ -153,8 +153,9 @@ int run_game(game_t *game) {
             }
         }
 
+        input_action_t action;
         if (game->current_scene != SCENE_PLAY && game->current_scene != SCENE_COUNTDOWN &&
-            input_menu_repeat(&game->input, &event)) scene_handle_event(game, &event);
+            input_menu_repeat(&game->input, &action)) scene_handle_action(game, &action);
         scene_update(game, delta_time);
         scene_render(game);
 

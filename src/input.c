@@ -54,6 +54,8 @@ void input_close(input_t *input) {
 }
 
 void input_device_event(input_t *input, SDL_Event const *event) {
+    if (event->type == SDL_JOYDEVICEADDED && !SDL_IsGameController(event->jdevice.which))
+        open_controller(input, event->jdevice.which);
     if (event->type == SDL_CONTROLLERDEVICEADDED) open_controller(input, event->cdevice.which);
     if (event->type != SDL_CONTROLLERDEVICEREMOVED) return;
     for (int i = 0; i < INPUT_CONTROLLERS; i++) {
@@ -93,22 +95,42 @@ void input_device_label(input_t const *input, int player, char *text, size_t siz
     }
 }
 
-static void key_event(SDL_Event *event, SDL_Keycode key) {
-    *event = (SDL_Event){0};
-    event->type = SDL_KEYDOWN;
-    event->key.keysym.sym = key;
+static input_action_t keyboard_action(SDL_Keycode key, bool playing, bool solo) {
+    if (playing) {
+        switch (key) {
+            case SDLK_ESCAPE: return (input_action_t){INPUT_PAUSE, 0};
+            case SDLK_F1: return (input_action_t){INPUT_DEBUG, 0};
+            case SDLK_a: return (input_action_t){INPUT_SELECT_POWER, 1};
+            case SDLK_d: return (input_action_t){INPUT_USE_POWER, 1};
+            case SDLK_SPACE: return (input_action_t){solo ? INPUT_USE_POWER : INPUT_NONE, 1};
+            case SDLK_LEFT: return (input_action_t){solo ? INPUT_NONE : INPUT_USE_POWER, 2};
+            case SDLK_RIGHT: return (input_action_t){solo ? INPUT_NONE : INPUT_SELECT_POWER, 2};
+            default: return (input_action_t){INPUT_NONE, 0};
+        }
+    }
+    input_action_kind_t kind = INPUT_NONE;
+    switch (key) {
+        case SDLK_UP: case SDLK_w: kind = INPUT_UP; break;
+        case SDLK_DOWN: case SDLK_s: kind = INPUT_DOWN; break;
+        case SDLK_LEFT: case SDLK_a: kind = INPUT_LEFT; break;
+        case SDLK_RIGHT: case SDLK_d: kind = INPUT_RIGHT; break;
+        case SDLK_RETURN: case SDLK_SPACE: kind = INPUT_CONFIRM; break;
+        case SDLK_ESCAPE: kind = INPUT_BACK; break;
+        case SDLK_BACKSPACE: kind = INPUT_CREDITS_BACK; break;
+        case SDLK_F1: kind = INPUT_DEBUG; break;
+        case SDLK_g: kind = INPUT_DEBUG_GIVE; break;
+    }
+    return (input_action_t){kind, 0};
 }
 
 bool input_translate(input_t *input, SDL_Event const *event, bool playing, bool solo,
-    SDL_Event *out) {
+    input_action_t *out) {
+    *out = (input_action_t){INPUT_NONE, 0};
     if (event->type == SDL_KEYDOWN) {
-        *out = *event;
-        if (!playing) return true;
-        SDL_Keycode key = event->key.keysym.sym;
-        if ((key == SDLK_a || key == SDLK_d || (solo && key == SDLK_SPACE)) &&
-            input->player_device[0]) return false;
-        if (!solo && (key == SDLK_LEFT || key == SDLK_RIGHT) && input->player_device[1]) return false;
-        return true;
+        if (event->key.repeat) return false;
+        *out = keyboard_action(event->key.keysym.sym, playing, solo);
+        if (out->player && input->player_device[out->player - 1]) return false;
+        return out->kind != INPUT_NONE;
     }
     if (event->type != SDL_CONTROLLERBUTTONDOWN) return false;
     int slot = -1;
@@ -116,29 +138,25 @@ bool input_translate(input_t *input, SDL_Event const *event, bool playing, bool 
         if (input->controllers[i].handle && input->controllers[i].id == event->cbutton.which) slot = i;
     if (slot < 0) return false;
     int button = event->cbutton.button;
-    SDL_Keycode key = 0;
     if (playing) {
-        int player = -1;
         for (int p = 0; p < (solo ? 1 : 2); p++)
-            if (input->player_device[p] == slot + 1) player = p;
-        if (player < 0) return false;
-        if (button == SDL_CONTROLLER_BUTTON_START) key = SDLK_ESCAPE;
-        if (button == SDL_CONTROLLER_BUTTON_A) key = player == 0 ? SDLK_d : SDLK_LEFT;
-        if (button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER) key = player == 0 ? SDLK_a : SDLK_RIGHT;
+            if (input->player_device[p] == slot + 1) out->player = p + 1;
+        if (!out->player) return false;
+        if (button == SDL_CONTROLLER_BUTTON_START) out->kind = INPUT_PAUSE;
+        if (button == SDL_CONTROLLER_BUTTON_A) out->kind = INPUT_USE_POWER;
+        if (button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER) out->kind = INPUT_SELECT_POWER;
     } else {
         switch (button) {
-            case SDL_CONTROLLER_BUTTON_A: key = SDLK_RETURN; break;
-            case SDL_CONTROLLER_BUTTON_B: key = SDLK_ESCAPE; break;
-            case SDL_CONTROLLER_BUTTON_START: key = SDLK_ESCAPE; break;
-            case SDL_CONTROLLER_BUTTON_DPAD_UP: key = SDLK_UP; break;
-            case SDL_CONTROLLER_BUTTON_DPAD_DOWN: key = SDLK_DOWN; break;
-            case SDL_CONTROLLER_BUTTON_DPAD_LEFT: key = SDLK_LEFT; break;
-            case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: key = SDLK_RIGHT; break;
+            case SDL_CONTROLLER_BUTTON_A: out->kind = INPUT_CONFIRM; break;
+            case SDL_CONTROLLER_BUTTON_B: out->kind = INPUT_BACK; break;
+            case SDL_CONTROLLER_BUTTON_START: out->kind = INPUT_PAUSE; break;
+            case SDL_CONTROLLER_BUTTON_DPAD_UP: out->kind = INPUT_UP; break;
+            case SDL_CONTROLLER_BUTTON_DPAD_DOWN: out->kind = INPUT_DOWN; break;
+            case SDL_CONTROLLER_BUTTON_DPAD_LEFT: out->kind = INPUT_LEFT; break;
+            case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: out->kind = INPUT_RIGHT; break;
         }
     }
-    if (!key) return false;
-    key_event(out, key);
-    return true;
+    return out->kind != INPUT_NONE;
 }
 
 static int stick_direction(SDL_GameController *handle) {
@@ -156,8 +174,8 @@ void input_reset_menu(input_t *input) {
     }
 }
 
-bool input_menu_repeat(input_t *input, SDL_Event *out) {
-    SDL_Keycode keys[] = {0, SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT};
+bool input_menu_repeat(input_t *input, input_action_t *out) {
+    input_action_kind_t directions[] = {INPUT_NONE, INPUT_UP, INPUT_DOWN, INPUT_LEFT, INPUT_RIGHT};
     Uint32 now = SDL_GetTicks();
     for (int i = 0; i < INPUT_CONTROLLERS; i++) {
         controller_t *c = &input->controllers[i];
@@ -168,7 +186,7 @@ bool input_menu_repeat(input_t *input, SDL_Event *out) {
         if (!direction) continue;
         if (changed || SDL_TICKS_PASSED(now, c->repeat_at)) {
             c->repeat_at = now + (changed ? 350 : 140);
-            key_event(out, keys[direction]);
+            *out = (input_action_t){directions[direction], 0};
             return true;
         }
     }
