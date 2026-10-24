@@ -11,6 +11,17 @@ make
 ./bin/pong
 ```
 
+### Browser (WebAssembly)
+
+Install [Emscripten](https://emscripten.org) (for example `brew install emscripten`), then build and run:
+
+```bash
+make wasm
+emrun bin/web/pong.html
+```
+
+Browsers block audio until the first key press or click. The title screen already needs a key press, so sound works once you start.
+
 ## Controls
 
 - Title screen: use W/S or the arrow keys to select 1 Player, 2 Players, or Credits, then Enter or Space to confirm.
