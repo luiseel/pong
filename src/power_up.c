@@ -30,6 +30,21 @@ void reset_power_ups(game_t *game) {
     schedule_spawn(&game->power_ups);
 }
 
+static void launch_power_up(power_up_state_t *power, power_up_kind_t kind, float direction) {
+    float angle = (random_unit() * 2.f - 1.f) * 0.65f;
+    power->kind = kind;
+    power->position = (vector_2d_t){
+        (GAME_WIDTH - POWER_UP_SIZE) / 2.f,
+        (GAME_HEIGHT - POWER_UP_SIZE) / 2.f
+    };
+    power->velocity = (vector_2d_t){
+        direction * cosf(angle) * POWER_UP_SPEED,
+        sinf(angle) * POWER_UP_SPEED
+    };
+    power->animation_time = 0;
+    power->active = true;
+}
+
 static void spawn_power_up(game_t *game) {
     power_up_state_t *power = &game->power_ups;
     int difference = game->player_two_score - game->player_one_score;
@@ -41,27 +56,22 @@ static void spawn_power_up(game_t *game) {
         difference < 0 ? 100 - losing_chance : 50;
     float direction = random_unit() < left_chance / 100.f ? -1.f : 1.f;
     float roll = random_unit();
-    power->kind = roll < POWER_UP_GROW_CHANCE ? POWER_UP_GROW :
+    power_up_kind_t kind = roll < POWER_UP_GROW_CHANCE ? POWER_UP_GROW :
         roll < POWER_UP_GROW_CHANCE + POWER_UP_SERPENT_CHANCE ? POWER_UP_SERPENT :
         POWER_UP_SPEED_BOOST;
-    if (power->kind == POWER_UP_GROW) {
+    if (kind == POWER_UP_GROW) {
         direction = power->next_grow_left ? -1.f : 1.f;
         power->next_grow_left = !power->next_grow_left;
-    } else if (power->kind == POWER_UP_SERPENT) {
+    } else if (kind == POWER_UP_SERPENT) {
         direction = power->next_serpent_left ? -1.f : 1.f;
         power->next_serpent_left = !power->next_serpent_left;
     }
-    float angle = (random_unit() * 2.f - 1.f) * 0.65f;
-    power->position = (vector_2d_t){
-        (GAME_WIDTH - POWER_UP_SIZE) / 2.f,
-        (GAME_HEIGHT - POWER_UP_SIZE) / 2.f
-    };
-    power->velocity = (vector_2d_t){
-        direction * cosf(angle) * POWER_UP_SPEED,
-        sinf(angle) * POWER_UP_SPEED
-    };
-    power->animation_time = 0;
-    power->active = true;
+    launch_power_up(power, kind, direction);
+}
+
+// Replaces any pickup in the field; leaves the spawn rotation alone
+void debug_spawn_power_up(game_t *game, power_up_kind_t kind, int player_num) {
+    launch_power_up(&game->power_ups, kind, player_num == 1 ? -1.f : 1.f);
 }
 
 static bool touches_pad(power_up_state_t const *power, pad_t const *pad) {

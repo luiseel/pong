@@ -749,6 +749,51 @@ static void check_inventory(void) {
     assert(one->count == 1);
 }
 
+static void check_debug_menu(void) {
+    game_t game = new_match();
+    press_key(&game, SDLK_F1);
+    assert(game.current_scene == SCENE_PLAY);
+
+    // Spawn a serpent pickup toward player two; the menu freezes play
+    game.debug = true;
+    game.power_ups.spawn_remaining = 100;
+    press_key(&game, SDLK_F1);
+    assert(game.current_scene == SCENE_DEBUG);
+    float ball_x = game.ball.position.x;
+    scene_update(&game, 1);
+    assert(game.ball.position.x == ball_x);
+    press_key(&game, SDLK_RIGHT);
+    press_key(&game, SDLK_DOWN);
+    press_key(&game, SDLK_DOWN);
+    press_key(&game, SDLK_RETURN);
+    assert(game.current_scene == SCENE_PLAY);
+    assert(game.power_ups.active && game.power_ups.kind == POWER_UP_SERPENT);
+    assert(game.power_ups.velocity.x > 0);
+    assert(game.power_ups.spawn_remaining == 100);
+
+    // Up wraps from the first row; every kind spawns toward player one
+    press_key(&game, SDLK_F1);
+    press_key(&game, SDLK_LEFT);
+    press_key(&game, SDLK_UP);
+    press_key(&game, SDLK_RETURN);
+    assert(game.power_ups.kind == POWER_UP_SERPENT && game.power_ups.velocity.x < 0);
+    for (int kind = POWER_UP_SPEED_BOOST; kind <= POWER_UP_GROW; kind++) {
+        press_key(&game, SDLK_F1);
+        for (int i = 0; i < kind; i++) press_key(&game, SDLK_DOWN);
+        press_key(&game, SDLK_RETURN);
+        assert(game.power_ups.kind == (power_up_kind_t)kind && game.power_ups.velocity.x < 0);
+    }
+
+    // Escape and F1 close the menu without a spawn
+    game.power_ups.active = false;
+    press_key(&game, SDLK_F1);
+    press_key(&game, SDLK_ESCAPE);
+    assert(game.current_scene == SCENE_PLAY && !game.power_ups.active);
+    press_key(&game, SDLK_F1);
+    press_key(&game, SDLK_F1);
+    assert(game.current_scene == SCENE_PLAY && !game.power_ups.active);
+}
+
 static void check_pvp_unchanged(void) {
     game_t game = new_match();
     game.player_two_pad.position.y = 0;
@@ -784,6 +829,7 @@ int main(void) {
     check_ai_ignores_passed_objects();
     check_mode_select();
     check_inventory();
+    check_debug_menu();
     check_pvp_unchanged();
     Mix_CloseAudio();
     SDL_Quit();

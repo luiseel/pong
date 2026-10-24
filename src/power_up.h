@@ -40,6 +40,7 @@ typedef struct {
 
 void reset_power_ups(struct game *);
 void update_power_ups(struct game *, float);
+void debug_spawn_power_up(struct game *, power_up_kind_t, int);
 void select_power_up(struct game *, int);
 void use_power_up(struct game *, int);
 void set_ball_serpent(struct game *, bool);

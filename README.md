@@ -59,4 +59,14 @@ new random countdown after each collection or miss. Pickups, active paddle power
 stored power-ups, and the spawn countdown continue across points; each new serve starts
 at normal speed. Starting a new match clears all power-ups. Power timers run only during play.
 
+## Debug menu
+
+Build and start the debug version with `make debug && ./bin/pong-debug` to turn on
+the debug menu. During a match, press F1 to open it (on a Mac, hold fn unless F-keys
+are set as standard function keys); play stays frozen while it is open. Use W/S or
+Up/Down to choose a speed, grow, or serpent pickup, and Left/Right or A/D to choose the
+player it drifts toward. Press Enter or Space to spawn it at the center; it replaces any
+pickup already in the field and does not change the normal spawn countdown. Press Escape
+or F1 to close the menu without a spawn. In the normal build, F1 does nothing.
+
 Run the gameplay checks with `make test`.
