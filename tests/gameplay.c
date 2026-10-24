@@ -20,7 +20,7 @@ static void check_spawn_weighting(void) {
         game_t game = new_match();
         game.player_one_score = cases[c].one;
         game.player_two_score = cases[c].two;
-        int left = 0, speed = 0, grow_left = 0, grow_right = 0;
+        int left = 0, speed = 0, grow_left = 0, grow_right = 0, serpent_left = 0, serpent_right = 0;
         for (int i = 0; i < 20000; i++) {
             game.power_ups.active = false;
             game.power_ups.spawn_remaining = 0;
@@ -31,6 +31,10 @@ static void check_spawn_weighting(void) {
                 if (game.power_ups.velocity.x < 0) grow_left++;
                 else grow_right++;
                 assert(abs(grow_left - grow_right) <= 1);
+            } else if (game.power_ups.kind == POWER_UP_SERPENT) {
+                if (game.power_ups.velocity.x < 0) serpent_left++;
+                else serpent_right++;
+                assert(abs(serpent_left - serpent_right) <= 1);
             } else {
                 speed++;
                 if (game.power_ups.velocity.x < 0) left++;
@@ -38,6 +42,7 @@ static void check_spawn_weighting(void) {
         }
         assert(fabsf(left / (float)speed - cases[c].expected_left) < 0.02f);
         assert(fabsf((grow_left + grow_right) / 20000.f - 0.25f) < 0.02f);
+        assert(fabsf((serpent_left + serpent_right) / 20000.f - 0.25f) < 0.02f);
     }
 }
 
@@ -51,16 +56,21 @@ static void catch_power_up(game_t *game, int player, power_up_kind_t kind) {
 }
 
 static void check_pickup_lifecycle(void) {
-    for (int player = 0; player < 2; player++) {
+    for (int test = 0; test < 4; test++) {
+        int player = test % 2;
+        power_up_kind_t kind = test < 2 ? POWER_UP_SPEED_BOOST : POWER_UP_SERPENT;
         game_t game = new_match();
-        float *timer = player == 0 ? &game.power_ups.player_one_remaining :
-            &game.power_ups.player_two_remaining;
+        float *timer = kind == POWER_UP_SERPENT ?
+            (player == 0 ? &game.power_ups.player_one_serpent_remaining :
+                &game.power_ups.player_two_serpent_remaining) :
+            (player == 0 ? &game.power_ups.player_one_remaining :
+                &game.power_ups.player_two_remaining);
         power_up_inventory_t *inventory = player == 0 ? &game.power_ups.player_one_inventory :
             &game.power_ups.player_two_inventory;
         *timer = 2;
-        catch_power_up(&game, player, POWER_UP_SPEED_BOOST);
+        catch_power_up(&game, player, kind);
         assert(!game.power_ups.active);
-        assert(inventory->count == 1 && inventory->slots[0] == POWER_UP_SPEED_BOOST);
+        assert(inventory->count == 1 && inventory->slots[0] == kind);
         assert(*timer < 2);
         assert(game.power_ups.spawn_remaining >= 8 && game.power_ups.spawn_remaining <= 14);
         use_power_up(&game, player + 1);
@@ -255,6 +265,58 @@ static void check_powered_rally(void) {
     assert(fabsf(game.ball.position.x - (300 + BALL_SPEED * POWER_UP_BALL_MULTIPLIER * 0.01f)) < 0.001f);
 }
 
+static void check_serpent_rally(void) {
+    game_t game = new_match();
+    game.power_ups.player_one_serpent_remaining = 8;
+    aim_at_pad(&game, 0);
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_serpent && !game.power_ups.ball_powered);
+
+    // The ball weaves to both sides of its straight path and keeps its x speed
+    game.ball.position = (vector_2d_t){100, 200};
+    game.ball.velocity = (vector_2d_t){1, 0};
+    game.power_ups.serpent_distance = 0;
+    float low = 200, high = 200;
+    for (int i = 0; i < 120; i++) {
+        float x = game.ball.position.x;
+        scene_update(&game, 1.f / 240.f);
+        assert(fabsf(game.ball.position.x - (x + BALL_SPEED / 240.f)) < 0.001f);
+        low = fminf(low, game.ball.position.y);
+        high = fmaxf(high, game.ball.position.y);
+    }
+    assert(high - 200 > POWER_UP_SERPENT_AMPLITUDE * 0.9f);
+    assert(200 - low > POWER_UP_SERPENT_AMPLITUDE * 0.9f);
+    assert(high - 200 <= POWER_UP_SERPENT_AMPLITUDE + 0.01f);
+
+    // The weave cannot push the ball through a wall
+    game.ball.position = (vector_2d_t){100, 1};
+    game.power_ups.serpent_distance = POWER_UP_SERPENT_WAVELENGTH / 2.f;
+    for (int i = 0; i < 60; i++) {
+        scene_update(&game, 1.f / 240.f);
+        assert(game.ball.position.y >= 0);
+    }
+
+    // Stacked with speed, the ball weaves and moves faster
+    game.power_ups.player_one_remaining = 8;
+    aim_at_pad(&game, 0);
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_serpent && game.power_ups.ball_powered);
+    game.ball.position = (vector_2d_t){300, 200};
+    game.ball.velocity = (vector_2d_t){1, 0};
+    scene_update(&game, 0.01f);
+    assert(fabsf(game.ball.position.x - (300 + BALL_SPEED * POWER_UP_BALL_MULTIPLIER * 0.01f)) < 0.001f);
+    assert(game.ball.position.y != 200);
+
+    // An ordinary return straightens the ball
+    aim_at_pad(&game, 1);
+    scene_update(&game, 1.f / 60.f);
+    assert(!game.power_ups.ball_serpent && !game.power_ups.ball_powered);
+    game.ball.position = (vector_2d_t){300, 200};
+    game.ball.velocity = (vector_2d_t){-1, 0};
+    scene_update(&game, 0.01f);
+    assert(game.ball.position.y == 200);
+}
+
 static void check_resets_and_scenes(void) {
     for (int scenario = 0; scenario < 2; scenario++) {
         game_t game = new_match();
@@ -265,6 +327,7 @@ static void check_resets_and_scenes(void) {
         game.power_ups.player_one_remaining = 5;
         game.power_ups.player_two_remaining = 6;
         game.power_ups.ball_powered = true;
+        game.power_ups.ball_serpent = true;
         game.power_ups.trail_count = 4;
         game.ball.position.x = scenario == 0 ? GAME_WIDTH + 1 : -game.ball.width - 1;
         game.ball.velocity.x = scenario == 0 ? 1 : -1;
@@ -279,7 +342,8 @@ static void check_resets_and_scenes(void) {
             assert(game.power_ups.position.x < 300 && game.power_ups.position.x > 298);
             assert(game.power_ups.velocity.x == -150);
         }
-        assert(!game.power_ups.ball_powered && game.power_ups.trail_count == 0);
+        assert(!game.power_ups.ball_powered && !game.power_ups.ball_serpent);
+        assert(game.power_ups.trail_count == 0);
         float countdown = game.power_ups.spawn_remaining;
         float power_remaining = game.power_ups.player_one_remaining;
         change_scene(&game, SCENE_TITLE);
@@ -497,6 +561,19 @@ static void check_ai_power_up(void) {
     assert(game.player_two_pad.height == POWER_UP_GROW_HEIGHT);
     assert(game.power_ups.player_two_inventory.count == 1);
 
+    // Serpent waits for the ball to come back
+    game = new_match();
+    game.mode = MODE_PVC;
+    catch_power_up(&game, 1, POWER_UP_SERPENT);
+    game.ball.position = (vector_2d_t){300, 200};
+    game.ball.velocity = (vector_2d_t){-1, 0};
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.player_two_inventory.count == 1);
+    game.ball.velocity = (vector_2d_t){1, 0};
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.player_two_inventory.count == 0);
+    assert(game.power_ups.player_two_serpent_remaining > 0);
+
     // An incoming ball takes priority over the pickup
     game = new_match();
     game.ball.position = (vector_2d_t){400, 8};
@@ -692,6 +769,7 @@ int main(void) {
     check_face_bounce_angle();
     check_growth_lifecycle();
     check_powered_rally();
+    check_serpent_rally();
     check_resets_and_scenes();
     check_ai_tracking();
     check_ai_wall_bounce();

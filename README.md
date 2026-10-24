@@ -40,12 +40,19 @@ and 90% when three or more behind. Tied scores give each player a 50% chance.
 The direction is chosen when the pickup spawns; you still have to catch it.
 
 Blue power-ups make your paddle twice as tall for 8 seconds. They account for
-roughly 25% of spawns; gold pickups account for the other 75%. Blue pickups
+roughly 25% of spawns; green pickups account for another 25% and gold pickups for the other 50%. Blue pickups
 alternate between players, starting with a randomly chosen player each match,
 regardless of score or whether the previous pickup was caught. You still need
 to catch them. A blue outline and timer bar show the remaining growth time.
 Growth and powerful hits can be active together; repeated growth refreshes the
 timer without increasing the paddle further.
+
+Green power-ups give 8 seconds of serpent hits: your shots weave up and down in a
+wave as they cross the field, with a green trail. An ordinary return straightens
+the ball again. Green pickups alternate between players in the same way as blue
+pickups. A green timer bar beside the paddle shows the remaining time. Serpent and
+powerful hits can be active together: the ball then weaves and moves at 1.5× speed.
+The computer uses a serpent power-up when the ball comes toward it.
 
 Only one pickup appears at a time. The first spawns after 8–14 seconds, with a
 new random countdown after each collection or miss. Pickups, active paddle powers,

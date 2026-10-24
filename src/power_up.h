@@ -5,7 +5,7 @@
 
 struct game;
 
-typedef enum { POWER_UP_SPEED_BOOST, POWER_UP_GROW } power_up_kind_t;
+typedef enum { POWER_UP_SPEED_BOOST, POWER_UP_GROW, POWER_UP_SERPENT } power_up_kind_t;
 
 typedef struct {
     power_up_kind_t slots[POWER_UP_SLOTS];
@@ -18,6 +18,9 @@ typedef struct {
     bool next_grow_left;
     float player_one_grow_remaining;
     float player_two_grow_remaining;
+    bool next_serpent_left;
+    float player_one_serpent_remaining;
+    float player_two_serpent_remaining;
     bool active;
     vector_2d_t position;
     vector_2d_t velocity;
@@ -26,6 +29,8 @@ typedef struct {
     float player_one_remaining;
     float player_two_remaining;
     bool ball_powered;
+    bool ball_serpent;
+    float serpent_distance;
     power_up_inventory_t player_one_inventory;
     power_up_inventory_t player_two_inventory;
     vector_2d_t trail[POWER_UP_TRAIL_LENGTH];
@@ -36,6 +41,7 @@ void reset_power_ups(struct game *);
 void update_power_ups(struct game *, float);
 void select_power_up(struct game *, int);
 void use_power_up(struct game *, int);
+void weave_ball(struct game *);
 void record_power_trail(struct game *);
 void render_power_ups(struct game *);
 

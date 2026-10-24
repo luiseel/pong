@@ -10,6 +10,9 @@
 #define PADDLE_HEIGHT 50
 #define POWER_UP_GROW_HEIGHT 100
 #define POWER_UP_GROW_CHANCE 0.25f
+#define POWER_UP_SERPENT_CHANCE 0.25f
+#define POWER_UP_SERPENT_AMPLITUDE 35.f   // pixels to each side of the straight path
+#define POWER_UP_SERPENT_WAVELENGTH 160.f // pixels of x travel per full wave
 #define POWER_UP_SPAWN_MIN 8.f
 #define POWER_UP_SPAWN_MAX 14.f
 #define POWER_UP_SPEED 150.f
