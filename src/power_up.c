@@ -253,7 +253,7 @@ bool catch_charged_ball(game_t *game, int player_num) {
     return true;
 }
 
-// Keep the held ball on the pad center, then shoot it straight
+// Keep the held ball on the pad center, then shoot it where the pad moves
 void update_held_ball(game_t *game, float delta_time) {
     power_up_state_t *power = &game->power_ups;
     ball_t *ball = &game->ball;
@@ -267,6 +267,8 @@ void update_held_ball(game_t *game, float delta_time) {
     // A serpent used during the hold still makes the shot weave
     set_ball_serpent(game, (power->ball_held_by == 1 ? power->player_one_serpent_remaining :
         power->player_two_serpent_remaining) > 0);
+    float aim = fmaxf(-1.f, fminf(pad->velocity.y, 1.f)) * POWER_UP_CHARGE_AIM_DEGREES * (float)M_PI / 180.f;
+    ball->velocity = (vector_2d_t){power->ball_held_by == 1 ? cosf(aim) : -cosf(aim), sinf(aim)};
     power->ball_held_by = 0;
     power->hold_remaining = 0;
     power->ball_charged = true;

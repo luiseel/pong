@@ -14,6 +14,7 @@
 #define POWER_UP_CHARGE_CHANCE 0.2f
 #define POWER_UP_CHARGE_HOLD 3.f        // seconds the ball sticks to the pad
 #define POWER_UP_CHARGE_MULTIPLIER 2.2f // ball speed of the released shot
+#define POWER_UP_CHARGE_AIM_DEGREES 45.f // shot angle when the pad moves at full speed
 #define POWER_UP_SERPENT_AMPLITUDE 35.f   // pixels to each side of the straight path
 #define POWER_UP_SERPENT_WAVELENGTH 160.f // pixels of x travel per full wave
 #define POWER_UP_SPAWN_MIN 4.f

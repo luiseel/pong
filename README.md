@@ -93,7 +93,8 @@ Pink power-ups give one charge blast. Use it to arm your paddle for 8 seconds. A
 bar behind the paddle shows the time left. If no ball hits the paddle in
 that time, the charge is lost. The next ball that hits the armed paddle sticks to its
 center and follows the paddle for 3 seconds while it pulses faster. Then the ball
-shoots straight ahead at 2.2× speed with a pink trail. A return by your opponent
+shoots at 2.2× speed in the direction the paddle moves at release, up to 45°, with a pink
+trail; a still paddle shoots straight ahead. A return by your opponent
 restores normal speed. With powerful hits active, the faster powerful-hit speed is used; with
 serpent hits active, the charged shot also weaves. Other timers and pickups continue
 during the hold. Pink pickups alternate between players in the same way as blue

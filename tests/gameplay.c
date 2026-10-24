@@ -365,6 +365,23 @@ static void check_charge_blast(void) {
     assert(game.ball.velocity.y == 0 && game.ball.position.y == y);
     assert(fabsf(game.ball.position.x - (x + BALL_SPEED * POWER_UP_CHARGE_MULTIPLIER * 0.01f)) < 0.01f);
 
+    // A moving pad aims the shot up to the aim angle
+    for (int player = 1; player <= 2; player++) {
+        for (int i = 0; i < 2; i++) {
+            float pad_velocity = i == 0 ? 1.f : -0.5f;
+            game.power_ups.ball_held_by = player;
+            game.power_ups.hold_remaining = 0.001f;
+            pad_t *aiming = player == 1 ? &game.player_one_pad : &game.player_two_pad;
+            aiming->velocity.y = pad_velocity;
+            update_held_ball(&game, 1.f / 60.f);
+            float aim = pad_velocity * POWER_UP_CHARGE_AIM_DEGREES * (float)M_PI / 180.f;
+            assert(fabsf(game.ball.velocity.x - (player == 1 ? cosf(aim) : -cosf(aim))) < 0.001f);
+            assert(fabsf(game.ball.velocity.y - sinf(aim)) < 0.001f);
+            aiming->velocity.y = 0;
+        }
+    }
+    game.ball.velocity = (vector_2d_t){1, 0};
+
     // A return clears the charged shot; the next hit of player one is normal
     aim_at_pad(&game, 1);
     scene_update(&game, 1.f / 60.f);
