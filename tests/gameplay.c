@@ -288,13 +288,16 @@ static void check_serpent_rally(void) {
     assert(200 - low > POWER_UP_SERPENT_AMPLITUDE * 0.9f);
     assert(high - 200 <= POWER_UP_SERPENT_AMPLITUDE + 0.01f);
 
-    // The weave cannot push the ball through a wall
+    // A wave that reaches a wall bounces off it instead of sliding along it
     game.ball.position = (vector_2d_t){100, 1};
     game.power_ups.serpent_distance = POWER_UP_SERPENT_WAVELENGTH / 2.f;
+    int steps_at_wall = 0;
     for (int i = 0; i < 60; i++) {
         scene_update(&game, 1.f / 240.f);
         assert(game.ball.position.y >= 0);
+        if (game.ball.position.y < 1) steps_at_wall++;
     }
+    assert(steps_at_wall <= 2);
 
     // Stacked with speed, the ball weaves and moves faster
     game.power_ups.player_one_remaining = 8;
