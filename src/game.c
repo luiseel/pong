@@ -1,6 +1,9 @@
 #include "game.h"
 #include <stdlib.h>
 #include <time.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 int init_game(game_t *game) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
@@ -82,17 +85,89 @@ void terminate_game(game_t *game) {
     SDL_Quit();
 }
 
-int run_game(game_t *game) {
-    const Uint64 target_fps = 60;
-    const float max_delta_time = 0.1f;
-    Uint64 frequency = SDL_GetPerformanceFrequency();
-    Uint64 last_time, current_time;
-    float delta_time;
+typedef struct {
+    game_t *game;
+    Uint64 frequency;
+    Uint64 current_time;
+    Uint64 next_frame_time;
+    Uint64 target_frame_counts;
+    SDL_bool has_vsync;
 #ifdef PONG_LOG_FPS
     Uint64 fps_last_time;
-    int frame_count = 0;
+    int frame_count;
 #endif
-    SDL_bool has_vsync = SDL_FALSE;
+} frame_context_t;
+
+static void shutdown_game(game_t *game) {
+    terminate_game_text(game);
+    terminate_game(game);
+}
+
+static void game_frame(void *arg) {
+    const float max_delta_time = 0.1f;
+    frame_context_t *ctx = arg;
+    game_t *game = ctx->game;
+    Uint64 last_time = ctx->current_time;
+    float delta_time;
+
+    ctx->current_time = SDL_GetPerformanceCounter();
+    delta_time = (float)((double)(ctx->current_time - last_time) / (double)ctx->frequency);
+    if (delta_time > max_delta_time) {
+        delta_time = max_delta_time;
+    }
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            game->is_running = FALSE;
+        } else {
+            scene_handle_event(game, &event);
+        }
+    }
+
+    scene_update(game, delta_time);
+    scene_render(game);
+
+#ifdef PONG_LOG_FPS
+    Uint64 fps_now = SDL_GetPerformanceCounter();
+    ctx->frame_count++;
+    Uint64 fps_elapsed = fps_now - ctx->fps_last_time;
+    if (fps_elapsed >= ctx->frequency) {
+        double fps = (double)ctx->frame_count * (double)ctx->frequency / (double)fps_elapsed;
+        SDL_Log("FPS: %.2f", fps);
+        ctx->frame_count = 0;
+        ctx->fps_last_time = fps_now;
+    }
+#endif
+
+#ifdef __EMSCRIPTEN__
+    /* The browser schedules frames, so there is no frame limiter here. */
+    if (!game->is_running) {
+        emscripten_cancel_main_loop();
+        shutdown_game(game);
+    }
+#else
+    if (!ctx->has_vsync) {
+        /* Sleep to a fixed schedule so sleep overshoot does not accumulate. */
+        Uint64 now = SDL_GetPerformanceCounter();
+        if (now < ctx->next_frame_time) {
+            Uint64 remaining = ctx->next_frame_time - now;
+            Uint32 delay_ms = (Uint32)((remaining * 1000 + ctx->frequency - 1) / ctx->frequency);
+            SDL_Delay(delay_ms);
+        }
+        ctx->next_frame_time += ctx->target_frame_counts;
+        if (ctx->next_frame_time < now) {
+            /* More than a frame behind: restart the schedule from now. */
+            ctx->next_frame_time = now + ctx->target_frame_counts;
+        }
+    }
+#endif
+}
+
+int run_game(game_t *game) {
+    const Uint64 target_fps = 60;
+    /* Static so it stays valid after run_game unwinds under Emscripten. */
+    static frame_context_t ctx;
     SDL_RendererInfo info;
 
     if (init_game(game) != 0) {
@@ -105,68 +180,30 @@ int run_game(game_t *game) {
     }
     change_scene(game, SCENE_TITLE);
 
+    ctx.game = game;
+    ctx.frequency = SDL_GetPerformanceFrequency();
+    ctx.has_vsync = SDL_FALSE;
     if (SDL_GetRendererInfo(game->renderer, &info) == 0 &&
         (info.flags & SDL_RENDERER_PRESENTVSYNC)) {
-        has_vsync = SDL_TRUE;
+        ctx.has_vsync = SDL_TRUE;
     }
-    const Uint64 target_frame_counts = frequency / target_fps;
-
-    current_time = SDL_GetPerformanceCounter();
-    Uint64 next_frame_time = current_time + target_frame_counts;
+    ctx.target_frame_counts = ctx.frequency / target_fps;
+    ctx.current_time = SDL_GetPerformanceCounter();
+    ctx.next_frame_time = ctx.current_time + ctx.target_frame_counts;
 #ifdef PONG_LOG_FPS
-    fps_last_time = current_time;
+    ctx.fps_last_time = ctx.current_time;
+    ctx.frame_count = 0;
 #endif
 
+#ifdef __EMSCRIPTEN__
+    /* fps 0 uses requestAnimationFrame; this call does not return. */
+    emscripten_set_main_loop_arg(game_frame, &ctx, 0, 1);
+#else
     while (game->is_running) {
-        last_time = current_time;
-        current_time = SDL_GetPerformanceCounter();
-        delta_time = (float)((double)(current_time - last_time) / (double)frequency);
-        if (delta_time > max_delta_time) {
-            delta_time = max_delta_time;
-        }
-
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                game->is_running = FALSE;
-            } else {
-                scene_handle_event(game, &event);
-            }
-        }
-
-        scene_update(game, delta_time);
-        scene_render(game);
-
-#ifdef PONG_LOG_FPS
-        Uint64 fps_now = SDL_GetPerformanceCounter();
-        frame_count++;
-        Uint64 fps_elapsed = fps_now - fps_last_time;
-        if (fps_elapsed >= frequency) {
-            double fps = (double)frame_count * (double)frequency / (double)fps_elapsed;
-            SDL_Log("FPS: %.2f", fps);
-            frame_count = 0;
-            fps_last_time = fps_now;
-        }
-#endif
-
-        if (!has_vsync) {
-            /* Sleep to a fixed schedule so sleep overshoot does not accumulate. */
-            Uint64 now = SDL_GetPerformanceCounter();
-            if (now < next_frame_time) {
-                Uint64 remaining = next_frame_time - now;
-                Uint32 delay_ms = (Uint32)((remaining * 1000 + frequency - 1) / frequency);
-                SDL_Delay(delay_ms);
-            }
-            next_frame_time += target_frame_counts;
-            if (next_frame_time < now) {
-                /* More than a frame behind: restart the schedule from now. */
-                next_frame_time = now + target_frame_counts;
-            }
-        }
+        game_frame(&ctx);
     }
-
-    terminate_game_text(game);
-    terminate_game(game);
+    shutdown_game(game);
+#endif
     return 0;
 }
 

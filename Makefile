@@ -9,7 +9,12 @@ SDL2_FLAGS = `sdl2-config --cflags --libs` `pkg-config --cflags --libs sdl2_mixe
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRCS))
 
-.PHONY: all clean
+EMCC = emcc
+WEB_DIR = $(BIN_DIR)/web
+EMFLAGS = -s USE_SDL=2 -s USE_SDL_MIXER=2 -s USE_SDL_TTF=2 -s ALLOW_MEMORY_GROWTH=1 \
+          --preload-file $(SRC_DIR)/assets --preload-file $(SRC_DIR)/fonts
+
+.PHONY: all clean wasm
 
 all: $(TARGET)
 
@@ -21,6 +26,11 @@ $(BIN_DIR)/%.o: $(SRC_DIR)/%.c
 
 clean:
 	$(RM) $(BIN_DIR)/$(TARGET) $(OBJS) $(OBJS:.o=.d) bin/gameplay-test
+	$(RM) -r $(WEB_DIR)
+
+wasm: $(SRCS)
+	mkdir -p $(WEB_DIR)
+	$(EMCC) $(CFLAGS) $(EMFLAGS) -o $(WEB_DIR)/pong.html $^
 
 -include $(OBJS:.o=.d)
 
