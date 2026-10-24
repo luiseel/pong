@@ -5,6 +5,7 @@
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_mixer.h>
 #include "entity.h"
+#include "input.h"
 #include "ai.h"
 #include "game_settings.h"
 #include "scene.h"
@@ -14,6 +15,8 @@
 typedef enum { MODE_PVP, MODE_PVC } game_mode_t;
 
 struct game {
+    input_t input;
+    scene_id_t paused_scene;
     SDL_Window *window;
     SDL_Renderer *renderer;
     int is_running;

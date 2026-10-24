@@ -2,6 +2,7 @@
 #define SCENE_H
 
 #include <SDL2/SDL.h>
+#include "input.h"
 
 struct game;
 typedef struct game game_t;
@@ -19,6 +20,7 @@ typedef enum {
 
 void change_scene(game_t *, scene_id_t);
 void scene_handle_event(game_t *, SDL_Event const *);
+void scene_handle_action(game_t *, input_action_t const *);
 void scene_update(game_t *, float);
 void scene_render(game_t *);
 

@@ -35,14 +35,18 @@ $(DEBUG_DIR):
 	mkdir -p $@
 
 clean:
-	$(RM) $(BIN_DIR)/$(TARGET) $(OBJS) $(OBJS:.o=.d) bin/gameplay-test
+	$(RM) $(BIN_DIR)/$(TARGET) $(OBJS) $(OBJS:.o=.d) bin/gameplay-test bin/controllers-test
 	$(RM) -r $(BIN_DIR)/$(TARGET)-debug $(DEBUG_DIR)
 
 -include $(OBJS:.o=.d) $(DEBUG_OBJS:.o=.d)
 
 .PHONY: test
-test: bin/gameplay-test
+test: bin/gameplay-test bin/controllers-test
 	SDL_AUDIODRIVER=dummy ./bin/gameplay-test
+	SDL_AUDIODRIVER=dummy ./bin/controllers-test
 
 bin/gameplay-test: tests/gameplay.c $(filter-out bin/main.o,$(OBJS))
+	$(CC) $(CFLAGS) -Isrc $(SDL2_FLAGS) -o $@ $^ -lm
+
+bin/controllers-test: tests/controllers.c $(filter-out bin/main.o,$(OBJS))
 	$(CC) $(CFLAGS) -Isrc $(SDL2_FLAGS) -o $@ $^ -lm
