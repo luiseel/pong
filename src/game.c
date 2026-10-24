@@ -236,7 +236,8 @@ void terminate_game_text(game_t *game) {
 
 void play_sounds(game_t *game) {
     if (game->ball.has_collided == 1) {
-        Mix_PlayChannel(-1, game->hit_sound, 0);
+        // One channel, so hits close together cut each other off instead of stacking up
+        Mix_PlayChannel(HIT_SOUND_CHANNEL, game->hit_sound, 0);
         game->ball.has_collided = 0;
     }
 }
