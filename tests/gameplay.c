@@ -21,6 +21,7 @@ static void check_spawn_weighting(void) {
         game.player_one_score = cases[c].one;
         game.player_two_score = cases[c].two;
         int left = 0, speed = 0, grow_left = 0, grow_right = 0, serpent_left = 0, serpent_right = 0;
+        int charge_left = 0, charge_right = 0;
         for (int i = 0; i < 20000; i++) {
             game.power_ups.active = false;
             game.power_ups.spawn_remaining = 0;
@@ -35,14 +36,19 @@ static void check_spawn_weighting(void) {
                 if (game.power_ups.velocity.x < 0) serpent_left++;
                 else serpent_right++;
                 assert(abs(serpent_left - serpent_right) <= 1);
+            } else if (game.power_ups.kind == POWER_UP_CHARGE) {
+                if (game.power_ups.velocity.x < 0) charge_left++;
+                else charge_right++;
+                assert(abs(charge_left - charge_right) <= 1);
             } else {
                 speed++;
                 if (game.power_ups.velocity.x < 0) left++;
             }
         }
         assert(fabsf(left / (float)speed - cases[c].expected_left) < 0.02f);
-        assert(fabsf((grow_left + grow_right) / 20000.f - 0.25f) < 0.02f);
-        assert(fabsf((serpent_left + serpent_right) / 20000.f - 0.25f) < 0.02f);
+        assert(fabsf((grow_left + grow_right) / 20000.f - 0.2f) < 0.02f);
+        assert(fabsf((serpent_left + serpent_right) / 20000.f - 0.2f) < 0.02f);
+        assert(fabsf((charge_left + charge_right) / 20000.f - 0.2f) < 0.02f);
     }
 }
 
@@ -320,6 +326,80 @@ static void check_serpent_rally(void) {
     assert(game.ball.position.y == 200);
 }
 
+static void check_charge_blast(void) {
+    game_t game = new_match();
+    game.power_ups.spawn_remaining = 100;
+    catch_power_up(&game, 0, POWER_UP_CHARGE);
+    use_power_up(&game, 1);
+    assert(game.power_ups.player_one_charge_remaining == POWER_UP_DURATION);
+    assert(game.power_ups.player_one_inventory.count == 0);
+
+    // The hit uses the charge; the ball sticks to the pad center and follows it
+    aim_at_pad(&game, 0);
+    scene_update(&game, 1.f / 60.f);
+    pad_t *pad = &game.player_one_pad;
+    assert(game.power_ups.ball_held_by == 1 && game.power_ups.player_one_charge_remaining == 0);
+    for (int i = 0; i < 60; i++) {
+        pad->position.y += 3;
+        scene_update(&game, 1.f / 60.f);
+        assert(game.ball.position.x == pad->position.x + pad->width);
+        assert(fabsf(game.ball.position.y + game.ball.height / 2.f -
+            (pad->position.y + pad->height / 2.f)) < 0.001f);
+    }
+    assert(pad->position.y > GAME_HEIGHT / 2);
+    for (int i = 0; i < 114; i++) scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_held_by == 1);
+
+    // After the hold, the ball goes straight at the charge speed
+    for (int i = 0; i < 6 && game.power_ups.ball_held_by; i++) scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_held_by == 0 && game.power_ups.ball_charged);
+    float x = game.ball.position.x, y = game.ball.position.y;
+    scene_update(&game, 0.01f);
+    assert(game.ball.velocity.y == 0 && game.ball.position.y == y);
+    assert(fabsf(game.ball.position.x - (x + BALL_SPEED * POWER_UP_CHARGE_MULTIPLIER * 0.01f)) < 0.01f);
+
+    // A return clears the charged shot; the next hit of player one is normal
+    aim_at_pad(&game, 1);
+    scene_update(&game, 1.f / 60.f);
+    assert(!game.power_ups.ball_charged && game.ball.velocity.x < 0);
+    aim_at_pad(&game, 0);
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_held_by == 0 && !game.power_ups.ball_charged);
+
+    // With speed, the charge speed wins; with serpent, the shot weaves
+    game.power_ups.player_one_charge_remaining = 8;
+    game.power_ups.player_one_remaining = 8;
+    game.power_ups.player_one_serpent_remaining = 8;
+    aim_at_pad(&game, 0);
+    scene_update(&game, 1.f / 60.f);
+    game.power_ups.hold_remaining = 0.001f;
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_charged && game.power_ups.ball_serpent);
+    x = game.ball.position.x;
+    y = game.ball.position.y;
+    scene_update(&game, 0.01f);
+    assert(fabsf(game.ball.position.x - (x + BALL_SPEED * POWER_UP_CHARGE_MULTIPLIER * 0.01f)) < 0.01f);
+    assert(game.ball.position.y != y);
+
+    // A point clears the charged shot
+    game.ball.position = (vector_2d_t){GAME_WIDTH - game.ball.width - 1, 0};
+    game.ball.velocity = (vector_2d_t){1, 0};
+    scene_update(&game, 1.f / 60.f);
+    assert(game.player_one_score == 1 && !game.power_ups.ball_charged);
+
+    // An unused charge runs out, and a later hit is normal
+    game.power_ups.player_one_charge_remaining = 8;
+    game.ball.position = (vector_2d_t){300, 200};
+    game.ball.velocity = (vector_2d_t){1, 0};
+    game.power_ups.player_one_remaining = 0;
+    game.power_ups.player_one_serpent_remaining = 0;
+    update_power_ups(&game, 8);
+    assert(game.power_ups.player_one_charge_remaining == 0);
+    aim_at_pad(&game, 0);
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_held_by == 0 && game.ball.velocity.x > 0);
+}
+
 static void check_resets_and_scenes(void) {
     for (int scenario = 0; scenario < 2; scenario++) {
         game_t game = new_match();
@@ -577,6 +657,20 @@ static void check_ai_power_up(void) {
     assert(game.power_ups.player_two_inventory.count == 0);
     assert(game.power_ups.player_two_serpent_remaining > 0);
 
+    // Charge waits for the ball to come back, and is not used while armed
+    game = new_match();
+    game.mode = MODE_PVC;
+    catch_power_up(&game, 1, POWER_UP_CHARGE);
+    catch_power_up(&game, 1, POWER_UP_CHARGE);
+    game.ball.position = (vector_2d_t){300, 200};
+    game.ball.velocity = (vector_2d_t){-1, 0};
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.player_two_inventory.count == 2);
+    game.ball.velocity = (vector_2d_t){1, 0};
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.player_two_inventory.count == 1);
+    assert(game.power_ups.player_two_charge_remaining > 0);
+
     // An incoming ball takes priority over the pickup
     game = new_match();
     game.ball.position = (vector_2d_t){400, 8};
@@ -776,8 +870,8 @@ static void check_debug_menu(void) {
     press_key(&game, SDLK_LEFT);
     press_key(&game, SDLK_UP);
     press_key(&game, SDLK_RETURN);
-    assert(game.power_ups.kind == POWER_UP_SERPENT && game.power_ups.velocity.x < 0);
-    for (int kind = POWER_UP_SPEED_BOOST; kind <= POWER_UP_GROW; kind++) {
+    assert(game.power_ups.kind == POWER_UP_CHARGE && game.power_ups.velocity.x < 0);
+    for (int kind = POWER_UP_SPEED_BOOST; kind <= POWER_UP_SERPENT; kind++) {
         press_key(&game, SDLK_F1);
         for (int i = 0; i < kind; i++) press_key(&game, SDLK_DOWN);
         press_key(&game, SDLK_RETURN);
@@ -818,6 +912,7 @@ int main(void) {
     check_growth_lifecycle();
     check_powered_rally();
     check_serpent_rally();
+    check_charge_blast();
     check_resets_and_scenes();
     check_ai_tracking();
     check_ai_wall_bounce();

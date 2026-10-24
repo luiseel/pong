@@ -9,8 +9,11 @@
 #define GAME_HEIGHT 480	
 #define PADDLE_HEIGHT 50
 #define POWER_UP_GROW_HEIGHT 100
-#define POWER_UP_GROW_CHANCE 0.25f
-#define POWER_UP_SERPENT_CHANCE 0.25f
+#define POWER_UP_GROW_CHANCE 0.2f
+#define POWER_UP_SERPENT_CHANCE 0.2f
+#define POWER_UP_CHARGE_CHANCE 0.2f
+#define POWER_UP_CHARGE_HOLD 3.f        // seconds the ball sticks to the pad
+#define POWER_UP_CHARGE_MULTIPLIER 2.2f // ball speed of the released shot
 #define POWER_UP_SERPENT_AMPLITUDE 35.f   // pixels to each side of the straight path
 #define POWER_UP_SERPENT_WAVELENGTH 160.f // pixels of x travel per full wave
 #define POWER_UP_SPAWN_MIN 8.f

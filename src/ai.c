@@ -79,14 +79,15 @@ void update_ai_pad(ai_state_t *ai, pad_t *pad, ball_t const *ball,
     }
 }
 
-// Slot to use now, or -1: grow at once, speed and serpent when the ball comes back
+// Slot to use now, or -1: grow at once, the others when the ball comes back
 int choose_ai_power_up(power_up_inventory_t const *inventory, pad_t const *pad,
                        ball_t const *ball, float speed_remaining, float grow_remaining,
-                       float serpent_remaining) {
+                       float serpent_remaining, float charge_remaining) {
     bool ball_incoming = is_ball_incoming(ball, pad);
     for (int i = 0; i < inventory->count; i++) {
         bool use = inventory->slots[i] == POWER_UP_GROW ? grow_remaining <= 0.f :
             inventory->slots[i] == POWER_UP_SERPENT ? ball_incoming && serpent_remaining <= 0.f :
+            inventory->slots[i] == POWER_UP_CHARGE ? ball_incoming && charge_remaining <= 0.f :
             ball_incoming && speed_remaining <= 0.f;
         if (use) return i;
     }
