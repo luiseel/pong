@@ -41,23 +41,36 @@ static void check_spawn_weighting(void) {
     }
 }
 
+static void catch_power_up(game_t *game, int player, power_up_kind_t kind) {
+    game->power_ups.active = true;
+    game->power_ups.kind = kind;
+    game->power_ups.position = player == 0 ? game->player_one_pad.position :
+        game->player_two_pad.position;
+    game->power_ups.velocity = (vector_2d_t){0, 0};
+    update_power_ups(game, 0.01f);
+}
+
 static void check_pickup_lifecycle(void) {
     for (int player = 0; player < 2; player++) {
         game_t game = new_match();
-        pad_t *pad = player == 0 ? &game.player_one_pad : &game.player_two_pad;
         float *timer = player == 0 ? &game.power_ups.player_one_remaining :
             &game.power_ups.player_two_remaining;
-        game.power_ups.active = true;
-        game.power_ups.position = pad->position;
+        power_up_inventory_t *inventory = player == 0 ? &game.power_ups.player_one_inventory :
+            &game.power_ups.player_two_inventory;
         *timer = 2;
-        update_power_ups(&game, 0.01f);
+        catch_power_up(&game, player, POWER_UP_SPEED_BOOST);
         assert(!game.power_ups.active);
-        assert(*timer == 8.f);
+        assert(inventory->count == 1 && inventory->slots[0] == POWER_UP_SPEED_BOOST);
+        assert(*timer < 2);
         assert(game.power_ups.spawn_remaining >= 8 && game.power_ups.spawn_remaining <= 14);
+        use_power_up(&game, player + 1);
+        assert(*timer == 8.f && inventory->count == 0);
         update_power_ups(&game, 1);
         assert(*timer == 7.f);
         game.power_ups.spawn_remaining = 100;
         update_power_ups(&game, 8);
+        assert(*timer == 0);
+        use_power_up(&game, player + 1);
         assert(*timer == 0);
     }
     game_t game = new_match();
@@ -167,11 +180,9 @@ static void check_growth_lifecycle(void) {
                 &game.power_ups.player_two_grow_remaining;
             pad->position.y = edge == 0 ? 0 : edge == 1 ? 215 : 430;
             for (int pickup = 0; pickup < 2; pickup++) {
-                game.power_ups.active = true;
-                game.power_ups.kind = POWER_UP_GROW;
-                game.power_ups.position = pad->position;
-                game.power_ups.velocity = (vector_2d_t){0, 0};
-                update_power_ups(&game, 0.01f);
+                catch_power_up(&game, player, POWER_UP_GROW);
+                assert(pad->height == (pickup == 0 ? 50 : 100));
+                use_power_up(&game, player + 1);
                 assert(pad->height == 100 && other->height == 50);
                 assert(pad->position.y >= 0 && pad->position.y + pad->height <= GAME_HEIGHT);
                 assert(*timer == 8);
@@ -186,10 +197,8 @@ static void check_growth_lifecycle(void) {
                 scene_update(&game, 1.f / 60.f);
                 assert(player == 0 ? game.ball.velocity.x > 0 : game.ball.velocity.x < 0);
             }
-            game.power_ups.active = true;
-            game.power_ups.kind = POWER_UP_SPEED_BOOST;
-            game.power_ups.position = pad->position;
-            update_power_ups(&game, 0.01f);
+            catch_power_up(&game, player, POWER_UP_SPEED_BOOST);
+            use_power_up(&game, player + 1);
             assert(pad->height == 100 && *timer > 0);
             assert(player == 0 ? game.power_ups.player_one_remaining == 8 :
                 game.power_ups.player_two_remaining == 8);
@@ -200,14 +209,14 @@ static void check_growth_lifecycle(void) {
             update_power_ups(&game, 8);
             assert(*timer == 0 && pad->height == 50);
             if (edge == 1) assert(pad->position.y == 215);
-            game.power_ups.active = true;
-            game.power_ups.kind = POWER_UP_GROW;
-            game.power_ups.position = pad->position;
-            game.power_ups.velocity = (vector_2d_t){0, 0};
-            update_power_ups(&game, 0);
+            catch_power_up(&game, player, POWER_UP_GROW);
+            use_power_up(&game, player + 1);
             assert(pad->height == 100);
+            catch_power_up(&game, player, POWER_UP_GROW);
             reset_match(&game);
             assert(pad->height == 50 && *timer == 0);
+            assert(game.power_ups.player_one_inventory.count == 0);
+            assert(game.power_ups.player_two_inventory.count == 0);
         }
     }
 }
@@ -471,7 +480,22 @@ static void check_ai_power_up(void) {
     game.power_ups.velocity = (vector_2d_t){POWER_UP_SPEED, 0};
     for (int i = 0; i < 150; i++) scene_update(&game, 1.f / 60.f);
     assert(!game.power_ups.active);
+    assert(game.power_ups.player_two_inventory.count == 1);
+    assert(game.power_ups.player_two_remaining == 0);
+    game.ball.position = (vector_2d_t){300, 200};
+    game.ball.velocity = (vector_2d_t){1, 0};
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.player_two_inventory.count == 0);
     assert(game.power_ups.player_two_remaining > 0);
+
+    // Growth is used at once, but not while it is still active
+    game = new_match();
+    game.mode = MODE_PVC;
+    catch_power_up(&game, 1, POWER_UP_GROW);
+    catch_power_up(&game, 1, POWER_UP_GROW);
+    scene_update(&game, 1.f / 60.f);
+    assert(game.player_two_pad.height == POWER_UP_GROW_HEIGHT);
+    assert(game.power_ups.player_two_inventory.count == 1);
 
     // An incoming ball takes priority over the pickup
     game = new_match();
@@ -600,6 +624,49 @@ static void check_mode_select(void) {
     assert(!game.ai.tracking && game.ai.target_y == 0);
 }
 
+static void check_inventory(void) {
+    game_t game = new_match();
+    power_up_inventory_t *one = &game.power_ups.player_one_inventory;
+    power_up_inventory_t *two = &game.power_ups.player_two_inventory;
+    catch_power_up(&game, 0, POWER_UP_SPEED_BOOST);
+    catch_power_up(&game, 0, POWER_UP_GROW);
+    catch_power_up(&game, 0, POWER_UP_SPEED_BOOST);
+    catch_power_up(&game, 0, POWER_UP_GROW);
+    assert(one->count == POWER_UP_SLOTS && one->slots[2] == POWER_UP_SPEED_BOOST);
+    assert(!game.power_ups.active && two->count == 0);
+
+    press_key(&game, SDLK_a);
+    assert(one->selected == 1);
+    press_key(&game, SDLK_d);
+    assert(game.player_one_pad.height == POWER_UP_GROW_HEIGHT);
+    assert(game.power_ups.player_one_remaining == 0);
+    assert(one->count == 2 && one->selected == 1 && one->slots[1] == POWER_UP_SPEED_BOOST);
+    press_key(&game, SDLK_a);
+    assert(one->selected == 0);
+    press_key(&game, SDLK_d);
+    assert(game.power_ups.player_one_remaining == 8 && one->count == 1);
+
+    catch_power_up(&game, 1, POWER_UP_GROW);
+    catch_power_up(&game, 1, POWER_UP_SPEED_BOOST);
+    press_key(&game, SDLK_RIGHT);
+    assert(two->selected == 1);
+    press_key(&game, SDLK_LEFT);
+    assert(game.power_ups.player_two_remaining == 8 && two->count == 1 && two->selected == 0);
+
+    // One player uses A/Left to select and D/Right to use
+    game.mode = MODE_PVC;
+    catch_power_up(&game, 0, POWER_UP_GROW);
+    press_key(&game, SDLK_LEFT);
+    assert(one->selected == 1 && two->count == 1);
+    press_key(&game, SDLK_RIGHT);
+    assert(one->count == 1 && one->slots[0] == POWER_UP_SPEED_BOOST);
+
+    // Keys do nothing outside play
+    change_scene(&game, SCENE_PAUSE);
+    press_key(&game, SDLK_d);
+    assert(one->count == 1);
+}
+
 static void check_pvp_unchanged(void) {
     game_t game = new_match();
     game.player_two_pad.position.y = 0;
@@ -633,6 +700,7 @@ int main(void) {
     check_ai_grown_pad_clamp();
     check_ai_ignores_passed_objects();
     check_mode_select();
+    check_inventory();
     check_pvp_unchanged();
     Mix_CloseAudio();
     SDL_Quit();

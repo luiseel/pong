@@ -130,9 +130,28 @@ static void handle_title_event(game_t *game, SDL_Event const *event) {
 }
 
 static void handle_play_event(game_t *game, SDL_Event const *event) {
-    if (event->type == SDL_KEYDOWN && !event->key.repeat &&
-        event->key.keysym.sym == SDLK_ESCAPE) {
-        change_scene(game, SCENE_PAUSE);
+    if (event->type != SDL_KEYDOWN || event->key.repeat) return;
+    bool solo = game->mode == MODE_PVC;
+    switch (event->key.keysym.sym) {
+        case SDLK_ESCAPE:
+            change_scene(game, SCENE_PAUSE);
+            break;
+        case SDLK_a:
+            select_power_up(game, 1);
+            break;
+        case SDLK_d:
+            use_power_up(game, 1);
+            break;
+        case SDLK_LEFT:
+            if (solo) select_power_up(game, 1);
+            else use_power_up(game, 2);
+            break;
+        case SDLK_RIGHT:
+            if (solo) use_power_up(game, 1);
+            else select_power_up(game, 2);
+            break;
+        default:
+            break;
     }
 }
 
@@ -259,6 +278,13 @@ void scene_update(game_t *game, float delta_time) {
         handle_solo_pad_keys(&game->player_one_pad, keyboard);
         update_ai_pad(&game->ai, &game->player_two_pad, &game->ball,
             &game->power_ups, delta_time);
+        int slot = choose_ai_power_up(&game->power_ups.player_two_inventory,
+            &game->player_two_pad, &game->ball, game->power_ups.player_two_remaining,
+            game->power_ups.player_two_grow_remaining);
+        if (slot >= 0) {
+            game->power_ups.player_two_inventory.selected = slot;
+            use_power_up(game, 2);
+        }
     } else {
         handle_pad_key_release(&game->player_one_pad, keyboard, 1);
         handle_pad_key_release(&game->player_two_pad, keyboard, 2);

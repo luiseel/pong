@@ -64,14 +64,39 @@ static bool touches_pad(power_up_state_t const *power, pad_t const *pad) {
         power->position.y + POWER_UP_SIZE > pad->position.y;
 }
 
-static void collect_power(power_up_state_t *power, pad_t *pad, float *speed_remaining, float *grow_remaining) {
-    if (power->kind == POWER_UP_GROW) {
-        *grow_remaining = POWER_UP_DURATION;
-        resize_pad(pad, POWER_UP_GROW_HEIGHT);
-    } else {
-        *speed_remaining = POWER_UP_DURATION;
-    }
+static void collect_power(power_up_state_t *power, power_up_inventory_t *inventory) {
+    if (inventory->count < POWER_UP_SLOTS) inventory->slots[inventory->count++] = power->kind;
     schedule_spawn(power);
+}
+
+static power_up_inventory_t *inventory_for(game_t *game, int player_num) {
+    return player_num == 1 ? &game->power_ups.player_one_inventory :
+        &game->power_ups.player_two_inventory;
+}
+
+void select_power_up(game_t *game, int player_num) {
+    power_up_inventory_t *inventory = inventory_for(game, player_num);
+    if (inventory->count > 0) inventory->selected = (inventory->selected + 1) % inventory->count;
+}
+
+void use_power_up(game_t *game, int player_num) {
+    power_up_state_t *power = &game->power_ups;
+    power_up_inventory_t *inventory = inventory_for(game, player_num);
+    if (inventory->count == 0) return;
+    if (inventory->slots[inventory->selected] == POWER_UP_GROW) {
+        *(player_num == 1 ? &power->player_one_grow_remaining : &power->player_two_grow_remaining) =
+            POWER_UP_DURATION;
+        resize_pad(player_num == 1 ? &game->player_one_pad : &game->player_two_pad,
+            POWER_UP_GROW_HEIGHT);
+    } else {
+        *(player_num == 1 ? &power->player_one_remaining : &power->player_two_remaining) =
+            POWER_UP_DURATION;
+    }
+    inventory->count--;
+    for (int i = inventory->selected; i < inventory->count; i++) {
+        inventory->slots[i] = inventory->slots[i + 1];
+    }
+    if (inventory->selected >= inventory->count) inventory->selected = 0;
 }
 
 void update_power_ups(game_t *game, float delta_time) {
@@ -100,11 +125,9 @@ void update_power_ups(game_t *game, float delta_time) {
     }
 
     if (touches_pad(power, &game->player_one_pad)) {
-        collect_power(power, &game->player_one_pad, &power->player_one_remaining,
-            &power->player_one_grow_remaining);
+        collect_power(power, &power->player_one_inventory);
     } else if (touches_pad(power, &game->player_two_pad)) {
-        collect_power(power, &game->player_two_pad, &power->player_two_remaining,
-            &power->player_two_grow_remaining);
+        collect_power(power, &power->player_two_inventory);
     } else if (power->position.x + POWER_UP_SIZE < 0 || power->position.x > GAME_WIDTH) {
         schedule_spawn(power);
     }
@@ -154,6 +177,26 @@ static void render_growth(SDL_Renderer *renderer, pad_t const *pad, float remain
     SDL_RenderFillRect(renderer, &bar);
 }
 
+static void render_inventory(SDL_Renderer *renderer, power_up_inventory_t const *inventory, int center_x) {
+    int const spacing = POWER_UP_SIZE + 8;
+    int left = center_x - (POWER_UP_SLOTS * spacing - 8) / 2;
+    for (int i = 0; i < POWER_UP_SLOTS; i++) {
+        SDL_Rect rect = {left + i * spacing, POWER_UP_SLOTS_Y, POWER_UP_SIZE, POWER_UP_SIZE};
+        if (i >= inventory->count) {
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 60);
+            SDL_RenderDrawRect(renderer, &rect);
+            continue;
+        }
+        bool grow = inventory->slots[i] == POWER_UP_GROW;
+        glow(renderer, rect, i == inventory->selected ? 1 : 0.3f, grow);
+        if (i == inventory->selected) {
+            SDL_Rect outline = {rect.x - 3, rect.y - 3, rect.w + 6, rect.h + 6};
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            SDL_RenderDrawRect(renderer, &outline);
+        }
+    }
+}
+
 void render_power_ups(game_t *game) {
     power_up_state_t const *power = &game->power_ups;
     SDL_BlendMode previous;
@@ -168,6 +211,8 @@ void render_power_ups(game_t *game) {
             SDL_RenderFillRect(game->renderer, &icon);
         }
     }
+    render_inventory(game->renderer, &power->player_one_inventory, GAME_WIDTH / 4);
+    render_inventory(game->renderer, &power->player_two_inventory, GAME_WIDTH - GAME_WIDTH / 4);
     render_pad_power(game->renderer, &game->player_one_pad, power->player_one_remaining);
     render_pad_power(game->renderer, &game->player_two_pad, power->player_two_remaining);
     render_growth(game->renderer, &game->player_one_pad, power->player_one_grow_remaining);
