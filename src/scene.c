@@ -217,6 +217,11 @@ static void handle_debug_event(game_t *game, SDL_Event const *event) {
                 game->debug_target_right ? 2 : 1);
             change_scene(game, SCENE_PLAY);
             break;
+        case SDLK_g:
+            debug_give_power_up(game, (power_up_kind_t)game->selected_menu_item,
+                game->debug_target_right ? 2 : 1);
+            change_scene(game, SCENE_PLAY);
+            break;
         case SDLK_ESCAPE:
         case SDLK_F1:
             change_scene(game, SCENE_PLAY);
@@ -475,7 +480,7 @@ static void render_debug(game_t *game) {
     SDL_RenderFillRect(game->renderer, NULL);
     SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_NONE);
 
-    render_centered_text(game, game->font, 30, "SPAWN PICKUP", normal_color);
+    render_centered_text(game, game->font, 30, "POWER-UPS", normal_color);
     for (int i = 0; i < DEBUG_ITEM_COUNT; i++) {
         render_centered_text(game, game->menu_font, debug_items[i].y, debug_items[i].label,
             game->selected_menu_item == i ? selected_color : normal_color);
@@ -483,10 +488,11 @@ static void render_debug(game_t *game) {
     render_selection_indicator(game, debug_items[game->selected_menu_item].y,
         debug_items[game->selected_menu_item].label);
     char const *target = game->debug_target_right ?
-        (game->mode == MODE_PVC ? "TOWARD < CPU >" : "TOWARD < PLAYER 2 >") :
-        "TOWARD < PLAYER 1 >";
+        (game->mode == MODE_PVC ? "TARGET < CPU >" : "TARGET < PLAYER 2 >") :
+        "TARGET < PLAYER 1 >";
     render_centered_text(game, game->menu_font, 330, target, normal_color);
-    render_centered_text(game, game->hint_font, 400, "ENTER TO SPAWN - ESC TO RETURN", normal_color);
+    render_centered_text(game, game->hint_font, 390, "ENTER/SPACE: SPAWN - G: GIVE NOW", normal_color);
+    render_centered_text(game, game->hint_font, 430, "ESC TO RETURN", normal_color);
 }
 
 static void render_credits(game_t *game) {
