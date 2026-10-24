@@ -64,7 +64,7 @@ serpent hits active, the charged shot also weaves. Other timers and pickups cont
 during the hold. Pink pickups alternate between players in the same way as blue
 pickups. The computer arms a charge when the ball comes toward it.
 
-Only one pickup appears at a time. The first spawns after 8–14 seconds, with a
+Normal play spawns one pickup at a time. The first spawns after 8–14 seconds, with a
 new random countdown after each collection or miss. Pickups, active paddle powers,
 stored power-ups, and the spawn countdown continue across points; each new serve starts
 at normal speed. Starting a new match clears all power-ups. Power timers run only during play.
@@ -75,8 +75,10 @@ Build and start the debug version with `make debug && ./bin/pong-debug` to turn 
 the debug menu. During a match, press F1 to open it (on a Mac, hold fn unless F-keys
 are set as standard function keys); play stays frozen while it is open. Use W/S or
 Up/Down to choose a speed, grow, serpent, or charge power-up, and Left/Right or A/D to choose the
-player it drifts toward. Press Enter or Space to spawn it at the center; it replaces any
-pickup already in the field and does not change the normal spawn countdown. Press G to
+player it drifts toward. Press Enter or Space to spawn it at the center. Each spawn
+adds a pickup; existing pickups keep moving and can be collected independently.
+Debug spawning does not change the normal spawn countdown; the countdown restarts
+after the last field pickup is collected or missed. Press G to
 give it directly to the target player's inventory and select it, ready to use. If the
 inventory is full, this replaces its selected slot. Giving leaves field pickups and
 the spawn countdown unchanged. Both actions resume play. Press Escape or F1 to close

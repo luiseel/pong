@@ -75,6 +75,7 @@ void reset_match(game_t *game) {
 }
 
 void terminate_game(game_t *game) {
+    clear_power_up_pickups(game);
     SDL_DestroyWindow(game->window);
     SDL_DestroyRenderer(game->renderer);
     Mix_FreeChunk(game->hit_sound);

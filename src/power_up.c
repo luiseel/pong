@@ -8,7 +8,6 @@ static float random_unit(void) {
 }
 
 static void schedule_spawn(power_up_state_t *power) {
-    power->active = false;
     power->spawn_remaining = POWER_UP_SPAWN_MIN +
         random_unit() * (POWER_UP_SPAWN_MAX - POWER_UP_SPAWN_MIN);
 }
@@ -21,7 +20,18 @@ static void resize_pad(pad_t *pad, int height) {
     pad->height = height;
 }
 
+void clear_power_up_pickups(game_t *game) {
+    power_up_pickup_t *pickup = game->power_ups.pickup.next;
+    while (pickup) {
+        power_up_pickup_t *next = pickup->next;
+        free(pickup);
+        pickup = next;
+    }
+    game->power_ups.pickup = (power_up_pickup_t){0};
+}
+
 void reset_power_ups(game_t *game) {
+    clear_power_up_pickups(game);
     resize_pad(&game->player_one_pad, PADDLE_HEIGHT);
     resize_pad(&game->player_two_pad, PADDLE_HEIGHT);
     game->power_ups = (power_up_state_t){0};
@@ -31,7 +41,7 @@ void reset_power_ups(game_t *game) {
     schedule_spawn(&game->power_ups);
 }
 
-static void launch_power_up(power_up_state_t *power, power_up_kind_t kind, float direction) {
+static void launch_power_up(power_up_pickup_t *power, power_up_kind_t kind, float direction) {
     float angle = (random_unit() * 2.f - 1.f) * 0.65f;
     power->kind = kind;
     power->position = (vector_2d_t){
@@ -71,24 +81,33 @@ static void spawn_power_up(game_t *game) {
         direction = power->next_charge_left ? -1.f : 1.f;
         power->next_charge_left = !power->next_charge_left;
     }
-    launch_power_up(power, kind, direction);
+    launch_power_up(&power->pickup, kind, direction);
 }
 
-// Replaces any pickup in the field; leaves the spawn rotation alone
 void debug_spawn_power_up(game_t *game, power_up_kind_t kind, int player_num) {
-    launch_power_up(&game->power_ups, kind, player_num == 1 ? -1.f : 1.f);
+    power_up_pickup_t *pickup = &game->power_ups.pickup;
+    if (pickup->active) {
+        while (pickup->next) pickup = pickup->next;
+        pickup->next = calloc(1, sizeof(*pickup));
+        if (!pickup->next) {
+            SDL_Log("Couldn't allocate a debug power-up");
+            return;
+        }
+        pickup = pickup->next;
+    }
+    launch_power_up(pickup, kind, player_num == 1 ? -1.f : 1.f);
 }
 
-static bool touches_pad(power_up_state_t const *power, pad_t const *pad) {
+static bool touches_pad(power_up_pickup_t const *power, pad_t const *pad) {
     return power->position.x < pad->position.x + pad->width &&
         power->position.x + POWER_UP_SIZE > pad->position.x &&
         power->position.y < pad->position.y + pad->height &&
         power->position.y + POWER_UP_SIZE > pad->position.y;
 }
 
-static void collect_power(power_up_state_t *power, power_up_inventory_t *inventory) {
+static void collect_power(power_up_pickup_t *power, power_up_inventory_t *inventory) {
     if (inventory->count < POWER_UP_SLOTS) inventory->slots[inventory->count++] = power->kind;
-    schedule_spawn(power);
+    power->active = false;
 }
 
 static power_up_inventory_t *inventory_for(game_t *game, int player_num) {
@@ -138,24 +157,7 @@ void use_power_up(game_t *game, int player_num) {
     if (inventory->selected >= inventory->count) inventory->selected = 0;
 }
 
-void update_power_ups(game_t *game, float delta_time) {
-    power_up_state_t *power = &game->power_ups;
-    power->player_one_remaining = fmaxf(0, power->player_one_remaining - delta_time);
-    power->player_two_remaining = fmaxf(0, power->player_two_remaining - delta_time);
-    power->player_one_grow_remaining = fmaxf(0, power->player_one_grow_remaining - delta_time);
-    power->player_two_grow_remaining = fmaxf(0, power->player_two_grow_remaining - delta_time);
-    power->player_one_serpent_remaining = fmaxf(0, power->player_one_serpent_remaining - delta_time);
-    power->player_two_serpent_remaining = fmaxf(0, power->player_two_serpent_remaining - delta_time);
-    power->player_one_charge_remaining = fmaxf(0, power->player_one_charge_remaining - delta_time);
-    power->player_two_charge_remaining = fmaxf(0, power->player_two_charge_remaining - delta_time);
-    resize_pad(&game->player_one_pad, power->player_one_grow_remaining > 0 ? POWER_UP_GROW_HEIGHT : PADDLE_HEIGHT);
-    resize_pad(&game->player_two_pad, power->player_two_grow_remaining > 0 ? POWER_UP_GROW_HEIGHT : PADDLE_HEIGHT);
-    if (!power->active) {
-        power->spawn_remaining -= delta_time;
-        if (power->spawn_remaining <= 0) spawn_power_up(game);
-        return;
-    }
-
+static void update_pickup(game_t *game, power_up_pickup_t *power, float delta_time) {
     power->animation_time += delta_time;
     power->position.x += power->velocity.x * delta_time;
     power->position.y += power->velocity.y * delta_time;
@@ -168,12 +170,45 @@ void update_power_ups(game_t *game, float delta_time) {
     }
 
     if (touches_pad(power, &game->player_one_pad)) {
-        collect_power(power, &power->player_one_inventory);
+        collect_power(power, &game->power_ups.player_one_inventory);
     } else if (touches_pad(power, &game->player_two_pad)) {
-        collect_power(power, &power->player_two_inventory);
+        collect_power(power, &game->power_ups.player_two_inventory);
     } else if (power->position.x + POWER_UP_SIZE < 0 || power->position.x > GAME_WIDTH) {
-        schedule_spawn(power);
+        power->active = false;
     }
+}
+
+void update_power_ups(game_t *game, float delta_time) {
+    power_up_state_t *power = &game->power_ups;
+    power->player_one_remaining = fmaxf(0, power->player_one_remaining - delta_time);
+    power->player_two_remaining = fmaxf(0, power->player_two_remaining - delta_time);
+    power->player_one_grow_remaining = fmaxf(0, power->player_one_grow_remaining - delta_time);
+    power->player_two_grow_remaining = fmaxf(0, power->player_two_grow_remaining - delta_time);
+    power->player_one_serpent_remaining = fmaxf(0, power->player_one_serpent_remaining - delta_time);
+    power->player_two_serpent_remaining = fmaxf(0, power->player_two_serpent_remaining - delta_time);
+    power->player_one_charge_remaining = fmaxf(0, power->player_one_charge_remaining - delta_time);
+    power->player_two_charge_remaining = fmaxf(0, power->player_two_charge_remaining - delta_time);
+    resize_pad(&game->player_one_pad, power->player_one_grow_remaining > 0 ? POWER_UP_GROW_HEIGHT : PADDLE_HEIGHT);
+    resize_pad(&game->player_two_pad, power->player_two_grow_remaining > 0 ? POWER_UP_GROW_HEIGHT : PADDLE_HEIGHT);
+    if (!power->pickup.active && !power->pickup.next) {
+        power->spawn_remaining -= delta_time;
+        if (power->spawn_remaining <= 0) spawn_power_up(game);
+        return;
+    }
+
+    power_up_pickup_t *pickup = &power->pickup;
+    if (pickup->active) update_pickup(game, pickup, delta_time);
+    while (pickup->next) {
+        power_up_pickup_t *next = pickup->next;
+        update_pickup(game, next, delta_time);
+        if (next->active) {
+            pickup = next;
+        } else {
+            pickup->next = next->next;
+            free(next);
+        }
+    }
+    if (!power->pickup.active && !power->pickup.next) schedule_spawn(power);
 }
 
 // Start or stop the weave for a new hit
@@ -338,18 +373,19 @@ void render_power_ups(game_t *game) {
     SDL_BlendMode previous;
     SDL_GetRenderDrawBlendMode(game->renderer, &previous);
     SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_BLEND);
-    if (power->active) {
-        SDL_Rect rect = {(int)power->position.x, (int)power->position.y, POWER_UP_SIZE, POWER_UP_SIZE};
-        glow(game->renderer, rect, 0.7f + 0.3f * sinf(power->animation_time * 8.f), power->kind);
-        if (power->kind == POWER_UP_GROW) {
+    for (power_up_pickup_t const *pickup = &power->pickup; pickup; pickup = pickup->next) {
+        if (!pickup->active) continue;
+        SDL_Rect rect = {(int)pickup->position.x, (int)pickup->position.y, POWER_UP_SIZE, POWER_UP_SIZE};
+        glow(game->renderer, rect, 0.7f + 0.3f * sinf(pickup->animation_time * 8.f), pickup->kind);
+        if (pickup->kind == POWER_UP_GROW) {
             SDL_Rect icon = {rect.x + 4, rect.y - 4, 4, rect.h + 8};
             SDL_RenderFillRect(game->renderer, &icon);
-        } else if (power->kind == POWER_UP_SERPENT) {
+        } else if (pickup->kind == POWER_UP_SERPENT) {
             SDL_Point zigzag[] = {{rect.x + 1, rect.y + 6}, {rect.x + 4, rect.y + 2},
                 {rect.x + 7, rect.y + 9}, {rect.x + 10, rect.y + 5}};
             SDL_SetRenderDrawColor(game->renderer, 20, 70, 30, 255);
             SDL_RenderDrawLines(game->renderer, zigzag, 4);
-        } else if (power->kind == POWER_UP_CHARGE) {
+        } else if (pickup->kind == POWER_UP_CHARGE) {
             SDL_Rect core = {rect.x + 4, rect.y + 4, 4, 4};
             SDL_SetRenderDrawColor(game->renderer, 90, 10, 50, 255);
             SDL_RenderFillRect(game->renderer, &core);

@@ -13,8 +13,17 @@ typedef struct {
     int selected;
 } power_up_inventory_t;
 
-typedef struct {
+typedef struct power_up_pickup {
     power_up_kind_t kind;
+    bool active;
+    vector_2d_t position;
+    vector_2d_t velocity;
+    float animation_time;
+    struct power_up_pickup *next;
+} power_up_pickup_t;
+
+typedef struct {
+    power_up_pickup_t pickup;
     bool next_grow_left;
     float player_one_grow_remaining;
     float player_two_grow_remaining;
@@ -27,11 +36,7 @@ typedef struct {
     int ball_held_by;     // 0, or the player whose pad holds the ball
     float hold_remaining;
     bool ball_charged;
-    bool active;
-    vector_2d_t position;
-    vector_2d_t velocity;
     float spawn_remaining;
-    float animation_time;
     float player_one_remaining;
     float player_two_remaining;
     bool ball_powered;
@@ -45,6 +50,7 @@ typedef struct {
 } power_up_state_t;
 
 void reset_power_ups(struct game *);
+void clear_power_up_pickups(struct game *);
 void update_power_ups(struct game *, float);
 void debug_spawn_power_up(struct game *, power_up_kind_t, int);
 void debug_give_power_up(struct game *, power_up_kind_t, int);

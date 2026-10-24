@@ -23,26 +23,26 @@ static void check_spawn_weighting(void) {
         int left = 0, speed = 0, grow_left = 0, grow_right = 0, serpent_left = 0, serpent_right = 0;
         int charge_left = 0, charge_right = 0;
         for (int i = 0; i < 20000; i++) {
-            game.power_ups.active = false;
+            game.power_ups.pickup.active = false;
             game.power_ups.spawn_remaining = 0;
             update_power_ups(&game, 0.001f);
-            assert(game.power_ups.active);
-            assert(fabsf(game.power_ups.velocity.x) > 100);
-            if (game.power_ups.kind == POWER_UP_GROW) {
-                if (game.power_ups.velocity.x < 0) grow_left++;
+            assert(game.power_ups.pickup.active);
+            assert(fabsf(game.power_ups.pickup.velocity.x) > 100);
+            if (game.power_ups.pickup.kind == POWER_UP_GROW) {
+                if (game.power_ups.pickup.velocity.x < 0) grow_left++;
                 else grow_right++;
                 assert(abs(grow_left - grow_right) <= 1);
-            } else if (game.power_ups.kind == POWER_UP_SERPENT) {
-                if (game.power_ups.velocity.x < 0) serpent_left++;
+            } else if (game.power_ups.pickup.kind == POWER_UP_SERPENT) {
+                if (game.power_ups.pickup.velocity.x < 0) serpent_left++;
                 else serpent_right++;
                 assert(abs(serpent_left - serpent_right) <= 1);
-            } else if (game.power_ups.kind == POWER_UP_CHARGE) {
-                if (game.power_ups.velocity.x < 0) charge_left++;
+            } else if (game.power_ups.pickup.kind == POWER_UP_CHARGE) {
+                if (game.power_ups.pickup.velocity.x < 0) charge_left++;
                 else charge_right++;
                 assert(abs(charge_left - charge_right) <= 1);
             } else {
                 speed++;
-                if (game.power_ups.velocity.x < 0) left++;
+                if (game.power_ups.pickup.velocity.x < 0) left++;
             }
         }
         assert(fabsf(left / (float)speed - cases[c].expected_left) < 0.02f);
@@ -53,11 +53,11 @@ static void check_spawn_weighting(void) {
 }
 
 static void catch_power_up(game_t *game, int player, power_up_kind_t kind) {
-    game->power_ups.active = true;
-    game->power_ups.kind = kind;
-    game->power_ups.position = player == 0 ? game->player_one_pad.position :
+    game->power_ups.pickup.active = true;
+    game->power_ups.pickup.kind = kind;
+    game->power_ups.pickup.position = player == 0 ? game->player_one_pad.position :
         game->player_two_pad.position;
-    game->power_ups.velocity = (vector_2d_t){0, 0};
+    game->power_ups.pickup.velocity = (vector_2d_t){0, 0};
     update_power_ups(game, 0.01f);
 }
 
@@ -75,7 +75,7 @@ static void check_pickup_lifecycle(void) {
             &game.power_ups.player_two_inventory;
         *timer = 2;
         catch_power_up(&game, player, kind);
-        assert(!game.power_ups.active);
+        assert(!game.power_ups.pickup.active);
         assert(inventory->count == 1 && inventory->slots[0] == kind);
         assert(*timer < 2);
         assert(game.power_ups.spawn_remaining >= 8 && game.power_ups.spawn_remaining <= 14);
@@ -90,16 +90,16 @@ static void check_pickup_lifecycle(void) {
         assert(*timer == 0);
     }
     game_t game = new_match();
-    game.power_ups.active = true;
-    game.power_ups.position = (vector_2d_t){GAME_WIDTH + 1, 100};
+    game.power_ups.pickup.active = true;
+    game.power_ups.pickup.position = (vector_2d_t){GAME_WIDTH + 1, 100};
     update_power_ups(&game, 0.01f);
-    assert(!game.power_ups.active);
+    assert(!game.power_ups.pickup.active);
     assert(game.power_ups.player_one_remaining == 0 && game.power_ups.player_two_remaining == 0);
-    game.power_ups.active = true;
-    game.power_ups.position = (vector_2d_t){300, 0};
-    game.power_ups.velocity = (vector_2d_t){100, -100};
+    game.power_ups.pickup.active = true;
+    game.power_ups.pickup.position = (vector_2d_t){300, 0};
+    game.power_ups.pickup.velocity = (vector_2d_t){100, -100};
     update_power_ups(&game, 0.01f);
-    assert(game.power_ups.position.y >= 0 && game.power_ups.velocity.y > 0);
+    assert(game.power_ups.pickup.position.y >= 0 && game.power_ups.pickup.velocity.y > 0);
 }
 
 static void aim_at_pad(game_t *game, int player) {
@@ -421,9 +421,9 @@ static void check_charge_blast(void) {
 static void check_resets_and_scenes(void) {
     for (int scenario = 0; scenario < 2; scenario++) {
         game_t game = new_match();
-        game.power_ups.active = scenario == 0;
-        game.power_ups.position = (vector_2d_t){300, 100};
-        game.power_ups.velocity = (vector_2d_t){-150, 0};
+        game.power_ups.pickup.active = scenario == 0;
+        game.power_ups.pickup.position = (vector_2d_t){300, 100};
+        game.power_ups.pickup.velocity = (vector_2d_t){-150, 0};
         game.power_ups.spawn_remaining = 3;
         game.power_ups.player_one_remaining = 5;
         game.power_ups.player_two_remaining = 6;
@@ -435,13 +435,13 @@ static void check_resets_and_scenes(void) {
         scene_update(&game, 0.01f);
         assert(game.player_one_score == (scenario == 0 ? 1 : 0));
         assert(game.player_two_score == (scenario == 1 ? 1 : 0));
-        assert(game.power_ups.active == (scenario == 0));
+        assert(game.power_ups.pickup.active == (scenario == 0));
         assert(game.power_ups.player_one_remaining > 4.98f && game.power_ups.player_one_remaining < 5);
         assert(game.power_ups.player_two_remaining > 5.98f && game.power_ups.player_two_remaining < 6);
         assert(game.power_ups.spawn_remaining > 2.98f && game.power_ups.spawn_remaining <= 3);
-        if (game.power_ups.active) {
-            assert(game.power_ups.position.x < 300 && game.power_ups.position.x > 298);
-            assert(game.power_ups.velocity.x == -150);
+        if (game.power_ups.pickup.active) {
+            assert(game.power_ups.pickup.position.x < 300 && game.power_ups.pickup.position.x > 298);
+            assert(game.power_ups.pickup.velocity.x == -150);
         }
         assert(!game.power_ups.ball_powered && !game.power_ups.ball_serpent);
         assert(game.power_ups.trail_count == 0);
@@ -453,7 +453,7 @@ static void check_resets_and_scenes(void) {
         assert(game.power_ups.player_one_remaining == power_remaining);
         change_scene(&game, SCENE_COUNTDOWN);
         assert(game.player_one_score == 0 && game.player_two_score == 0);
-        assert(!game.power_ups.active && !game.power_ups.ball_powered);
+        assert(!game.power_ups.pickup.active && !game.power_ups.ball_powered);
         assert(game.power_ups.player_one_remaining == 0 && game.power_ups.player_two_remaining == 0);
         assert(game.power_ups.spawn_remaining >= 8 && game.power_ups.spawn_remaining <= 14);
     }
@@ -639,12 +639,12 @@ static void check_ai_power_up(void) {
     pad->position.y = GAME_HEIGHT - pad->height;
     game.ball.position = (vector_2d_t){600, 100};
     game.ball.velocity = (vector_2d_t){-0.1f, 0};
-    game.power_ups.active = true;
-    game.power_ups.kind = POWER_UP_SPEED_BOOST;
-    game.power_ups.position = (vector_2d_t){(GAME_WIDTH - POWER_UP_SIZE) / 2.f, 100};
-    game.power_ups.velocity = (vector_2d_t){POWER_UP_SPEED, 0};
+    game.power_ups.pickup.active = true;
+    game.power_ups.pickup.kind = POWER_UP_SPEED_BOOST;
+    game.power_ups.pickup.position = (vector_2d_t){(GAME_WIDTH - POWER_UP_SIZE) / 2.f, 100};
+    game.power_ups.pickup.velocity = (vector_2d_t){POWER_UP_SPEED, 0};
     for (int i = 0; i < 150; i++) scene_update(&game, 1.f / 60.f);
-    assert(!game.power_ups.active);
+    assert(!game.power_ups.pickup.active);
     assert(game.power_ups.player_two_inventory.count == 1);
     assert(game.power_ups.player_two_remaining == 0);
     game.ball.position = (vector_2d_t){300, 200};
@@ -695,9 +695,9 @@ static void check_ai_power_up(void) {
     game = new_match();
     game.ball.position = (vector_2d_t){400, 8};
     game.ball.velocity = (vector_2d_t){1, 0};
-    game.power_ups.active = true;
-    game.power_ups.position = (vector_2d_t){400, 400};
-    game.power_ups.velocity = (vector_2d_t){POWER_UP_SPEED, 0};
+    game.power_ups.pickup.active = true;
+    game.power_ups.pickup.position = (vector_2d_t){400, 400};
+    game.power_ups.pickup.velocity = (vector_2d_t){POWER_UP_SPEED, 0};
     update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
     game.ai.aim_offset = 0;
     game.ai.reaction_remaining = 0;
@@ -776,16 +776,30 @@ static void check_ai_ignores_passed_objects(void) {
     assert(fabsf(game.ai.target_y - GAME_HEIGHT / 2.f) < 0.01f);
 
     // A pickup still in front is chased even though the ball is behind
-    game.power_ups.active = true;
-    game.power_ups.position = (vector_2d_t){400, 400};
-    game.power_ups.velocity = (vector_2d_t){POWER_UP_SPEED, 0};
+    game.power_ups.pickup.active = true;
+    game.power_ups.pickup.position = (vector_2d_t){400, 400};
+    game.power_ups.pickup.velocity = (vector_2d_t){POWER_UP_SPEED, 0};
     update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
     assert(fabsf(game.ai.target_y - (400 + POWER_UP_SIZE / 2.f)) < 0.01f);
 
     // A pickup behind the pad is ignored
-    game.power_ups.position.x = pad->position.x + 5;
+    game.power_ups.pickup.position.x = pad->position.x + 5;
     update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
     assert(fabsf(game.ai.target_y - GAME_HEIGHT / 2.f) < 0.01f);
+
+    debug_spawn_power_up(&game, POWER_UP_GROW, 2);
+    power_up_pickup_t *next = game.power_ups.pickup.next;
+    next->position = (vector_2d_t){400, 100};
+    next->velocity = (vector_2d_t){POWER_UP_SPEED, 0};
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+    assert(fabsf(game.ai.target_y - (100 + POWER_UP_SIZE / 2.f)) < 0.01f);
+
+    debug_spawn_power_up(&game, POWER_UP_SERPENT, 2);
+    next->next->position = (vector_2d_t){500, 300};
+    next->next->velocity = (vector_2d_t){POWER_UP_SPEED, 0};
+    update_ai_pad(&game.ai, pad, &game.ball, &game.power_ups, 1.f / 60.f);
+    assert(fabsf(game.ai.target_y - (300 + POWER_UP_SIZE / 2.f)) < 0.01f);
+    clear_power_up_pickups(&game);
 }
 
 static void check_mode_select(void) {
@@ -827,7 +841,7 @@ static void check_inventory(void) {
     catch_power_up(&game, 0, POWER_UP_SPEED_BOOST);
     catch_power_up(&game, 0, POWER_UP_GROW);
     assert(one->count == POWER_UP_SLOTS && one->slots[2] == POWER_UP_SPEED_BOOST);
-    assert(!game.power_ups.active && two->count == 0);
+    assert(!game.power_ups.pickup.active && two->count == 0);
 
     press_key(&game, SDLK_a);
     assert(one->selected == 1);
@@ -881,31 +895,90 @@ static void check_debug_menu(void) {
     press_key(&game, SDLK_DOWN);
     press_key(&game, SDLK_RETURN);
     assert(game.current_scene == SCENE_PLAY);
-    assert(game.power_ups.active && game.power_ups.kind == POWER_UP_SERPENT);
-    assert(game.power_ups.velocity.x > 0);
+    assert(game.power_ups.pickup.active && game.power_ups.pickup.kind == POWER_UP_SERPENT);
+    assert(game.power_ups.pickup.velocity.x > 0);
     assert(game.power_ups.spawn_remaining == 100);
 
     // Up wraps from the first row; every kind spawns toward player one
+    clear_power_up_pickups(&game);
     press_key(&game, SDLK_F1);
     press_key(&game, SDLK_LEFT);
     press_key(&game, SDLK_UP);
     press_key(&game, SDLK_RETURN);
-    assert(game.power_ups.kind == POWER_UP_CHARGE && game.power_ups.velocity.x < 0);
+    assert(game.power_ups.pickup.kind == POWER_UP_CHARGE && game.power_ups.pickup.velocity.x < 0);
     for (int kind = POWER_UP_SPEED_BOOST; kind <= POWER_UP_SERPENT; kind++) {
+        clear_power_up_pickups(&game);
         press_key(&game, SDLK_F1);
         for (int i = 0; i < kind; i++) press_key(&game, SDLK_DOWN);
         press_key(&game, SDLK_RETURN);
-        assert(game.power_ups.kind == (power_up_kind_t)kind && game.power_ups.velocity.x < 0);
+        assert(game.power_ups.pickup.kind == (power_up_kind_t)kind && game.power_ups.pickup.velocity.x < 0);
     }
 
     // Escape and F1 close the menu without a spawn
-    game.power_ups.active = false;
+    clear_power_up_pickups(&game);
     press_key(&game, SDLK_F1);
     press_key(&game, SDLK_ESCAPE);
-    assert(game.current_scene == SCENE_PLAY && !game.power_ups.active);
+    assert(game.current_scene == SCENE_PLAY && !game.power_ups.pickup.active);
     press_key(&game, SDLK_F1);
     press_key(&game, SDLK_F1);
-    assert(game.current_scene == SCENE_PLAY && !game.power_ups.active);
+    assert(game.current_scene == SCENE_PLAY && !game.power_ups.pickup.active);
+}
+
+static void check_debug_spawn_multiple(void) {
+    game_t game = new_match();
+    game.debug = true;
+    press_key(&game, SDLK_F1);
+    press_key(&game, SDLK_RETURN);
+    press_key(&game, SDLK_F1);
+    press_key(&game, SDLK_DOWN);
+    press_key(&game, SDLK_SPACE);
+    game.player_one_pad.position.x = (GAME_WIDTH - POWER_UP_SIZE) / 2.f;
+    game.player_one_pad.position.y = (GAME_HEIGHT - POWER_UP_SIZE) / 2.f;
+    update_power_ups(&game, 0);
+    power_up_inventory_t const *inventory = &game.power_ups.player_one_inventory;
+    assert(inventory->count == 2);
+    assert(inventory->slots[0] == POWER_UP_SPEED_BOOST);
+    assert(inventory->slots[1] == POWER_UP_GROW);
+}
+
+static void check_multiple_pickup_lifecycle(void) {
+    game_t game = new_match();
+    game.power_ups.spawn_remaining = 100;
+    debug_spawn_power_up(&game, POWER_UP_SPEED_BOOST, 1);
+    debug_spawn_power_up(&game, POWER_UP_GROW, 2);
+    debug_spawn_power_up(&game, POWER_UP_SERPENT, 2);
+    power_up_pickup_t *first = &game.power_ups.pickup;
+    power_up_pickup_t *second = first->next;
+    power_up_pickup_t *third = second->next;
+    first->position = game.player_one_pad.position;
+    second->position = (vector_2d_t){300, 0};
+    second->velocity = (vector_2d_t){100, -100};
+    third->position = (vector_2d_t){400, 100};
+    third->velocity = (vector_2d_t){100, 0};
+    update_power_ups(&game, 0.01f);
+    assert(game.power_ups.player_one_inventory.count == 1);
+    assert(!first->active);
+    assert(second->position.x > 300 && second->position.y > 0 && second->velocity.y > 0);
+    assert(third->position.x > 400);
+    assert(game.power_ups.spawn_remaining == 100);
+
+    second->position.x = GAME_WIDTH + 1;
+    update_power_ups(&game, 0);
+    assert(game.power_ups.spawn_remaining == 100);
+    debug_spawn_power_up(&game, POWER_UP_CHARGE, 1);
+    assert(first->active && third->kind == POWER_UP_SERPENT);
+    first->position = game.player_one_pad.position;
+    third->position = game.player_two_pad.position;
+    update_power_ups(&game, 0);
+    assert(game.power_ups.player_one_inventory.slots[1] == POWER_UP_CHARGE);
+    assert(game.power_ups.player_two_inventory.slots[0] == POWER_UP_SERPENT);
+    assert(!first->active && !first->next);
+    assert(game.power_ups.spawn_remaining >= POWER_UP_SPAWN_MIN &&
+        game.power_ups.spawn_remaining <= POWER_UP_SPAWN_MAX);
+
+    for (int i = 0; i < 100; i++) debug_spawn_power_up(&game, POWER_UP_GROW, 1);
+    reset_match(&game);
+    assert(!game.power_ups.pickup.active && !game.power_ups.pickup.next);
 }
 
 static void check_debug_give(void) {
@@ -924,7 +997,7 @@ static void check_debug_give(void) {
             assert(game.current_scene == SCENE_PLAY);
             assert(inventory->count == (kind < POWER_UP_SLOTS ? kind + 1 : POWER_UP_SLOTS));
             assert(inventory->slots[inventory->selected] == (power_up_kind_t)kind);
-            assert(game.power_ups.active && game.power_ups.kind == POWER_UP_CHARGE);
+            assert(game.power_ups.pickup.active && game.power_ups.pickup.kind == POWER_UP_CHARGE);
             assert(game.power_ups.spawn_remaining == countdown);
         }
         power_up_inventory_t *other = player == 1 ?
@@ -974,6 +1047,8 @@ int main(void) {
     check_mode_select();
     check_inventory();
     check_debug_menu();
+    check_debug_spawn_multiple();
+    check_multiple_pickup_lifecycle();
     check_debug_give();
     check_pvp_unchanged();
     Mix_CloseAudio();
