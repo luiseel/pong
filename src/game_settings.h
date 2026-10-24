@@ -19,6 +19,8 @@
 #define POWER_UP_WEIGHT_STEP 15
 #define POWER_UP_WEIGHT_CAP 90
 #define POWER_UP_TRAIL_LENGTH 8
+#define POWER_UP_SLOTS 3
+#define POWER_UP_SLOTS_Y 92
 #define BALL_SPEED 340.f            // pixels per second at unit velocity
 #define BALL_MAX_BOUNCE_DEGREES 60.f // max exit angle from a pad face hit
 #define BALL_PAD_SPIN 0.25f          // hit offset added per unit of pad velocity

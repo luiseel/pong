@@ -30,6 +30,10 @@ static float predict_y(vector_2d_t position, float size, vector_2d_t velocity, f
     return low + folded;
 }
 
+static bool is_ball_incoming(ball_t const *ball, pad_t const *pad) {
+    return ball->velocity.x > 0.f && ball->position.x < pad->position.x;
+}
+
 static float clamp_target(pad_t const *pad, float target) {
     float const half = pad->height / 2.f;
     return fmaxf(half, fminf(GAME_HEIGHT - half, target));
@@ -38,7 +42,7 @@ static float clamp_target(pad_t const *pad, float target) {
 void update_ai_pad(ai_state_t *ai, pad_t *pad, ball_t const *ball,
                    power_up_state_t const *power, float delta_time) {
     // Only objects still in front of the pad count; anything past it is gone
-    bool ball_incoming = ball->velocity.x > 0.f && ball->position.x < pad->position.x;
+    bool ball_incoming = is_ball_incoming(ball, pad);
     bool power_incoming = power->active && power->velocity.x > 0.f &&
         power->position.x < pad->position.x;
 
@@ -73,4 +77,17 @@ void update_ai_pad(ai_state_t *ai, pad_t *pad, ball_t const *ball,
     } else {
         pad->goal_velocity.y = diff > 0.f ? AI_MAX_SPEED : -AI_MAX_SPEED;
     }
+}
+
+// Slot to use now, or -1: grow at once, speed when the ball comes back
+int choose_ai_power_up(power_up_inventory_t const *inventory, pad_t const *pad,
+                       ball_t const *ball, float speed_remaining, float grow_remaining) {
+    bool ball_incoming = is_ball_incoming(ball, pad);
+    for (int i = 0; i < inventory->count; i++) {
+        if (inventory->slots[i] == POWER_UP_GROW ? grow_remaining <= 0.f :
+            ball_incoming && speed_remaining <= 0.f) {
+            return i;
+        }
+    }
+    return -1;
 }
