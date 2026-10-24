@@ -14,6 +14,6 @@ typedef struct {
 
 void reset_ai(ai_state_t *);
 void update_ai_pad(ai_state_t *, pad_t *, ball_t const *, power_up_state_t const *, float);
-int choose_ai_power_up(power_up_inventory_t const *, pad_t const *, ball_t const *, float, float);
+int choose_ai_power_up(power_up_inventory_t const *, pad_t const *, ball_t const *, float, float, float);
 
 #endif

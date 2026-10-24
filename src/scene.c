@@ -281,7 +281,8 @@ void scene_update(game_t *game, float delta_time) {
             &game->power_ups, delta_time);
         int slot = choose_ai_power_up(&game->power_ups.player_two_inventory,
             &game->player_two_pad, &game->ball, game->power_ups.player_two_remaining,
-            game->power_ups.player_two_grow_remaining);
+            game->power_ups.player_two_grow_remaining,
+            game->power_ups.player_two_serpent_remaining);
         if (slot >= 0) {
             game->power_ups.player_two_inventory.selected = slot;
             use_power_up(game, 2);
@@ -304,15 +305,19 @@ void scene_update(game_t *game, float delta_time) {
         update_power_ups(game, step);
         update_ball(&game->ball, step,
             game->power_ups.ball_powered ? POWER_UP_BALL_MULTIPLIER : 1.f);
+        weave_ball(game);
         if (check_collisions(&game->ball, &game->player_one_pad)) {
             game->power_ups.ball_powered = game->power_ups.player_one_remaining > 0;
+            set_ball_serpent(game, game->power_ups.player_one_serpent_remaining > 0);
         }
         if (check_collisions(&game->ball, &game->player_two_pad)) {
             game->power_ups.ball_powered = game->power_ups.player_two_remaining > 0;
+            set_ball_serpent(game, game->power_ups.player_two_serpent_remaining > 0);
         }
         check_wall_collisions(&game->ball, &game->player_one_score, &game->player_two_score);
         if (old_one_score != game->player_one_score || old_two_score != game->player_two_score) {
             game->power_ups.ball_powered = false;
+            set_ball_serpent(game, false);
             game->power_ups.trail_count = 0;
             if (game->target_score > 0 &&
                 (game->player_one_score >= game->target_score ||
