@@ -24,7 +24,7 @@ struct game {
     power_up_state_t power_ups;
     game_mode_t mode;
     ai_state_t ai;
-    bool debug;              // --debug: F1 opens the debug menu during play
+    bool debug;              // make debug: F1 opens the debug menu during play
     bool debug_target_right; // debug pickups drift toward player two
     ball_t ball;
     pad_t player_one_pad;

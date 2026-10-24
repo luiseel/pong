@@ -1,7 +1,12 @@
-#include <string.h>
 #include "game.h"
 
-int main(int argc, char **argv) {
-    game_t game = { .is_running = FALSE, .debug = argc > 1 && strcmp(argv[1], "--debug") == 0 };
+#ifdef PONG_DEBUG
+#define DEBUG_MENU TRUE
+#else
+#define DEBUG_MENU FALSE
+#endif
+
+int main(void) {
+    game_t game = { .is_running = FALSE, .debug = DEBUG_MENU };
     return run_game(&game);
 }
