@@ -22,6 +22,9 @@ int init_game(game_t *game) {
     if (game->renderer == NULL) {
         return 1;
     }
+    if (SDL_RenderSetLogicalSize(game->renderer, GAME_WIDTH, GAME_HEIGHT) != 0) {
+        return 1;
+    }
 
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096) != 0) {
         return 1;    
@@ -130,6 +133,18 @@ int run_game(game_t *game) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 game->is_running = FALSE;
+            } else if (event.type == SDL_KEYDOWN &&
+                       (event.key.keysym.sym == SDLK_F11 ||
+                        (event.key.keysym.sym == SDLK_RETURN &&
+                         (event.key.keysym.mod & KMOD_ALT)))) {
+                if (!event.key.repeat) {
+                    Uint32 flags = SDL_GetWindowFlags(game->window);
+                    Uint32 fullscreen = (flags & SDL_WINDOW_FULLSCREEN)
+                        ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP;
+                    if (SDL_SetWindowFullscreen(game->window, fullscreen) != 0) {
+                        SDL_Log("Couldn't toggle fullscreen: %s", SDL_GetError());
+                    }
+                }
             } else {
                 scene_handle_event(game, &event);
             }
