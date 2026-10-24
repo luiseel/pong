@@ -27,6 +27,7 @@ void reset_power_ups(game_t *game) {
     game->power_ups = (power_up_state_t){0};
     game->power_ups.next_grow_left = random_unit() < 0.5f;
     game->power_ups.next_serpent_left = random_unit() < 0.5f;
+    game->power_ups.next_charge_left = random_unit() < 0.5f;
     schedule_spawn(&game->power_ups);
 }
 
@@ -58,13 +59,17 @@ static void spawn_power_up(game_t *game) {
     float roll = random_unit();
     power_up_kind_t kind = roll < POWER_UP_GROW_CHANCE ? POWER_UP_GROW :
         roll < POWER_UP_GROW_CHANCE + POWER_UP_SERPENT_CHANCE ? POWER_UP_SERPENT :
-        POWER_UP_SPEED_BOOST;
+        roll < POWER_UP_GROW_CHANCE + POWER_UP_SERPENT_CHANCE + POWER_UP_CHARGE_CHANCE ?
+        POWER_UP_CHARGE : POWER_UP_SPEED_BOOST;
     if (kind == POWER_UP_GROW) {
         direction = power->next_grow_left ? -1.f : 1.f;
         power->next_grow_left = !power->next_grow_left;
     } else if (kind == POWER_UP_SERPENT) {
         direction = power->next_serpent_left ? -1.f : 1.f;
         power->next_serpent_left = !power->next_serpent_left;
+    } else if (kind == POWER_UP_CHARGE) {
+        direction = power->next_charge_left ? -1.f : 1.f;
+        power->next_charge_left = !power->next_charge_left;
     }
     launch_power_up(power, kind, direction);
 }
@@ -111,6 +116,10 @@ void use_power_up(game_t *game, int player_num) {
             *(player_num == 1 ? &power->player_one_serpent_remaining :
                 &power->player_two_serpent_remaining) = POWER_UP_DURATION;
             break;
+        case POWER_UP_CHARGE:
+            *(player_num == 1 ? &power->player_one_charge_remaining :
+                &power->player_two_charge_remaining) = POWER_UP_DURATION;
+            break;
         case POWER_UP_SPEED_BOOST:
             *(player_num == 1 ? &power->player_one_remaining : &power->player_two_remaining) =
                 POWER_UP_DURATION;
@@ -131,6 +140,8 @@ void update_power_ups(game_t *game, float delta_time) {
     power->player_two_grow_remaining = fmaxf(0, power->player_two_grow_remaining - delta_time);
     power->player_one_serpent_remaining = fmaxf(0, power->player_one_serpent_remaining - delta_time);
     power->player_two_serpent_remaining = fmaxf(0, power->player_two_serpent_remaining - delta_time);
+    power->player_one_charge_remaining = fmaxf(0, power->player_one_charge_remaining - delta_time);
+    power->player_two_charge_remaining = fmaxf(0, power->player_two_charge_remaining - delta_time);
     resize_pad(&game->player_one_pad, power->player_one_grow_remaining > 0 ? POWER_UP_GROW_HEIGHT : PADDLE_HEIGHT);
     resize_pad(&game->player_two_pad, power->player_two_grow_remaining > 0 ? POWER_UP_GROW_HEIGHT : PADDLE_HEIGHT);
     if (!power->active) {
@@ -187,9 +198,43 @@ void weave_ball(game_t *game) {
     }
 }
 
+// An armed pad uses its charge on this hit and holds the ball
+bool catch_charged_ball(game_t *game, int player_num) {
+    power_up_state_t *power = &game->power_ups;
+    float *armed = player_num == 1 ? &power->player_one_charge_remaining :
+        &power->player_two_charge_remaining;
+    if (*armed <= 0) return false;
+    *armed = 0;
+    power->ball_held_by = player_num;
+    power->hold_remaining = POWER_UP_CHARGE_HOLD;
+    game->ball.velocity = (vector_2d_t){player_num == 1 ? 1.f : -1.f, 0};
+    update_held_ball(game, 0);
+    return true;
+}
+
+// Keep the held ball on the pad center, then shoot it straight
+void update_held_ball(game_t *game, float delta_time) {
+    power_up_state_t *power = &game->power_ups;
+    ball_t *ball = &game->ball;
+    pad_t const *pad = power->ball_held_by == 1 ? &game->player_one_pad : &game->player_two_pad;
+    ball->position.x = power->ball_held_by == 1 ? pad->position.x + pad->width :
+        pad->position.x - ball->width;
+    ball->position.y = pad->position.y + (pad->height - ball->height) / 2.f;
+    ball->previous_position = ball->position;
+    power->hold_remaining -= delta_time;
+    if (power->hold_remaining > 0) return;
+    // A serpent used during the hold still makes the shot weave
+    set_ball_serpent(game, (power->ball_held_by == 1 ? power->player_one_serpent_remaining :
+        power->player_two_serpent_remaining) > 0);
+    power->ball_held_by = 0;
+    power->hold_remaining = 0;
+    power->ball_charged = true;
+    ball->has_collided = true;
+}
+
 void record_power_trail(game_t *game) {
     power_up_state_t *power = &game->power_ups;
-    if (!power->ball_powered && !power->ball_serpent) {
+    if (!power->ball_powered && !power->ball_serpent && !power->ball_charged) {
         power->trail_count = 0;
         return;
     }
@@ -201,8 +246,10 @@ void record_power_trail(game_t *game) {
 }
 
 // Indexed by power_up_kind_t
-static SDL_Color const halo_colors[] = {{255, 190, 65, 255}, {65, 190, 255, 255}, {90, 230, 110, 255}};
-static SDL_Color const fill_colors[] = {{255, 220, 110, 255}, {110, 220, 255, 255}, {150, 255, 160, 255}};
+static SDL_Color const halo_colors[] = {{255, 190, 65, 255}, {65, 190, 255, 255}, {90, 230, 110, 255},
+    {255, 70, 170, 255}};
+static SDL_Color const fill_colors[] = {{255, 220, 110, 255}, {110, 220, 255, 255}, {150, 255, 160, 255},
+    {255, 140, 205, 255}};
 
 static void glow(SDL_Renderer *renderer, SDL_Rect rect, float pulse, power_up_kind_t kind) {
     SDL_Color halo_color = halo_colors[kind];
@@ -217,13 +264,19 @@ static void glow(SDL_Renderer *renderer, SDL_Rect rect, float pulse, power_up_ki
     SDL_RenderFillRect(renderer, &rect);
 }
 
-static void render_pad_power(SDL_Renderer *renderer, pad_t const *pad, float remaining) {
+// Timer bar at the back of the pad; slot 0 is nearest the pad
+static void render_bar(SDL_Renderer *renderer, pad_t const *pad, int slot, float remaining) {
+    SDL_Rect bar = {pad->position.x < GAME_WIDTH / 2 ? (int)pad->position.x - 6 - 5 * slot :
+        (int)pad->position.x + pad->width + 3 + 5 * slot,
+        (int)pad->position.y, 3, (int)(pad->height * remaining / POWER_UP_DURATION)};
+    SDL_RenderFillRect(renderer, &bar);
+}
+
+static void render_pad_power(SDL_Renderer *renderer, pad_t const *pad, float remaining, int slot) {
     if (remaining <= 0) return;
     SDL_Rect rect = {(int)pad->position.x, (int)pad->position.y, pad->width, pad->height};
     glow(renderer, rect, 1, POWER_UP_SPEED_BOOST);
-    SDL_Rect bar = {pad->position.x < GAME_WIDTH / 2 ? rect.x - 11 : rect.x + rect.w + 8,
-        rect.y, 3, (int)(pad->height * remaining / POWER_UP_DURATION)};
-    SDL_RenderFillRect(renderer, &bar);
+    render_bar(renderer, pad, slot, remaining);
 }
 
 static void render_growth(SDL_Renderer *renderer, pad_t const *pad, float remaining) {
@@ -232,19 +285,27 @@ static void render_growth(SDL_Renderer *renderer, pad_t const *pad, float remain
     SDL_Rect outline = {(int)pad->position.x - 1, (int)pad->position.y - 1,
         pad->width + 2, pad->height + 2};
     SDL_RenderDrawRect(renderer, &outline);
-    SDL_Rect bar = {pad->position.x < GAME_WIDTH / 2 ? outline.x - 5 : outline.x + outline.w + 2,
-        (int)pad->position.y, 3, (int)(pad->height * remaining / POWER_UP_DURATION)};
-    SDL_RenderFillRect(renderer, &bar);
+    render_bar(renderer, pad, 0, remaining);
 }
 
-static void render_serpent(SDL_Renderer *renderer, pad_t const *pad, float remaining) {
+static void render_bar_color(SDL_Renderer *renderer, pad_t const *pad, float remaining, int slot,
+                             power_up_kind_t kind) {
     if (remaining <= 0) return;
-    SDL_Color color = fill_colors[POWER_UP_SERPENT];
+    SDL_Color color = fill_colors[kind];
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 255);
-    SDL_Rect bar = {pad->position.x < GAME_WIDTH / 2 ? (int)pad->position.x - 16 :
-        (int)pad->position.x + pad->width + 13,
-        (int)pad->position.y, 3, (int)(pad->height * remaining / POWER_UP_DURATION)};
-    SDL_RenderFillRect(renderer, &bar);
+    render_bar(renderer, pad, slot, remaining);
+}
+
+// Active timers stack behind the pad: grow, speed, serpent, then the charge window
+static void render_pad_timers(SDL_Renderer *renderer, pad_t const *pad, float speed, float grow,
+                              float serpent, float charge) {
+    int speed_slot = grow > 0;
+    int serpent_slot = speed_slot + (speed > 0);
+    int charge_slot = serpent_slot + (serpent > 0);
+    render_pad_power(renderer, pad, speed, speed_slot);
+    render_growth(renderer, pad, grow);
+    render_bar_color(renderer, pad, serpent, serpent_slot, POWER_UP_SERPENT);
+    render_bar_color(renderer, pad, charge, charge_slot, POWER_UP_CHARGE);
 }
 
 static void render_inventory(SDL_Renderer *renderer, power_up_inventory_t const *inventory, int center_x) {
@@ -282,19 +343,32 @@ void render_power_ups(game_t *game) {
                 {rect.x + 7, rect.y + 9}, {rect.x + 10, rect.y + 5}};
             SDL_SetRenderDrawColor(game->renderer, 20, 70, 30, 255);
             SDL_RenderDrawLines(game->renderer, zigzag, 4);
+        } else if (power->kind == POWER_UP_CHARGE) {
+            SDL_Rect core = {rect.x + 4, rect.y + 4, 4, 4};
+            SDL_SetRenderDrawColor(game->renderer, 90, 10, 50, 255);
+            SDL_RenderFillRect(game->renderer, &core);
         }
     }
     render_inventory(game->renderer, &power->player_one_inventory, GAME_WIDTH / 4);
     render_inventory(game->renderer, &power->player_two_inventory, GAME_WIDTH - GAME_WIDTH / 4);
-    render_pad_power(game->renderer, &game->player_one_pad, power->player_one_remaining);
-    render_pad_power(game->renderer, &game->player_two_pad, power->player_two_remaining);
-    render_growth(game->renderer, &game->player_one_pad, power->player_one_grow_remaining);
-    render_growth(game->renderer, &game->player_two_pad, power->player_two_grow_remaining);
-    render_serpent(game->renderer, &game->player_one_pad, power->player_one_serpent_remaining);
-    render_serpent(game->renderer, &game->player_two_pad, power->player_two_serpent_remaining);
-    if (power->ball_powered || power->ball_serpent) {
-        // A weaving ball leaves a green trail; speed keeps the gold glow
-        SDL_Color trail = halo_colors[power->ball_serpent ? POWER_UP_SERPENT : POWER_UP_SPEED_BOOST];
+    render_pad_timers(game->renderer, &game->player_one_pad, power->player_one_remaining,
+        power->player_one_grow_remaining, power->player_one_serpent_remaining,
+        power->player_one_charge_remaining);
+    render_pad_timers(game->renderer, &game->player_two_pad, power->player_two_remaining,
+        power->player_two_grow_remaining, power->player_two_serpent_remaining,
+        power->player_two_charge_remaining);
+    if (power->ball_held_by) {
+        // The pulse gets faster as the release comes closer
+        float elapsed = POWER_UP_CHARGE_HOLD - power->hold_remaining;
+        float pulse = 0.6f + 0.4f * sinf(elapsed * (6.f + 6.f * elapsed));
+        SDL_Rect ball = {(int)game->ball.position.x, (int)game->ball.position.y,
+            game->ball.width, game->ball.height};
+        glow(game->renderer, ball, pulse, POWER_UP_CHARGE);
+    } else if (power->ball_powered || power->ball_serpent || power->ball_charged) {
+        // A charged shot leaves a pink trail, a weaving ball a green one; speed keeps the gold glow
+        power_up_kind_t kind = power->ball_charged ? POWER_UP_CHARGE :
+            power->ball_serpent ? POWER_UP_SERPENT : POWER_UP_SPEED_BOOST;
+        SDL_Color trail = halo_colors[kind];
         for (int i = power->trail_count - 1; i >= 0; i--) {
             SDL_Rect rect = {(int)power->trail[i].x, (int)power->trail[i].y,
                 game->ball.width, game->ball.height};
@@ -304,7 +378,8 @@ void render_power_ups(game_t *game) {
         }
         SDL_Rect ball = {(int)game->ball.position.x, (int)game->ball.position.y,
             game->ball.width, game->ball.height};
-        glow(game->renderer, ball, 1, power->ball_powered ? POWER_UP_SPEED_BOOST : POWER_UP_SERPENT);
+        glow(game->renderer, ball, 1, power->ball_charged ? POWER_UP_CHARGE :
+            power->ball_powered ? POWER_UP_SPEED_BOOST : POWER_UP_SERPENT);
     }
     SDL_SetRenderDrawBlendMode(game->renderer, previous);
 }

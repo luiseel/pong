@@ -40,7 +40,7 @@ and 90% when three or more behind. Tied scores give each player a 50% chance.
 The direction is chosen when the pickup spawns; you still have to catch it.
 
 Blue power-ups make your paddle twice as tall for 8 seconds. They account for
-roughly 25% of spawns; green pickups account for another 25% and gold pickups for the other 50%. Blue pickups
+roughly 20% of spawns; green and pink pickups account for 20% each and gold pickups for the other 40%. Blue pickups
 alternate between players, starting with a randomly chosen player each match,
 regardless of score or whether the previous pickup was caught. You still need
 to catch them. A blue outline and timer bar show the remaining growth time.
@@ -53,6 +53,16 @@ the ball again. Green pickups alternate between players in the same way as blue
 pickups. A green timer bar beside the paddle shows the remaining time. Serpent and
 powerful hits can be active together: the ball then weaves and moves at 1.5× speed.
 The computer uses a serpent power-up when the ball comes toward it.
+
+Pink power-ups give one charge blast. Use it to arm your paddle for 8 seconds. A pink
+bar behind the paddle shows the time left. If no ball hits the paddle in
+that time, the charge is lost. The next ball that hits the armed paddle sticks to its
+center and follows the paddle for 3 seconds while it pulses faster. Then the ball
+shoots straight ahead at 2.2× speed with a pink trail. A return by your opponent
+restores normal speed. With powerful hits active, the charge speed is used; with
+serpent hits active, the charged shot also weaves. Other timers and pickups continue
+during the hold. Pink pickups alternate between players in the same way as blue
+pickups. The computer arms a charge when the ball comes toward it.
 
 Only one pickup appears at a time. The first spawns after 8–14 seconds, with a
 new random countdown after each collection or miss. Pickups, active paddle powers,

@@ -7,7 +7,7 @@
 #include "game.h"
 
 #define MENU_ITEM_COUNT 3
-#define DEBUG_ITEM_COUNT 3
+#define DEBUG_ITEM_COUNT 4
 
 static SDL_Color const normal_color = { 235, 219, 178, 255 };
 static SDL_Color const selected_color = { 251, 73, 52, 255 };
@@ -27,9 +27,10 @@ static struct {
     char const *label;
     int y;
 } const debug_items[DEBUG_ITEM_COUNT] = {
-    { "SPEED", 130 },
-    { "GROW", 185 },
-    { "SERPENT", 240 },
+    { "SPEED", 110 },
+    { "GROW", 160 },
+    { "SERPENT", 210 },
+    { "CHARGE", 260 },
 };
 
 static void render_selection_indicator(game_t *game, int y, char const *text) {
@@ -312,6 +313,16 @@ void scene_handle_event(game_t *game, SDL_Event const *event) {
     }
 }
 
+static void hit_ball(game_t *game, int player_num) {
+    power_up_state_t *power = &game->power_ups;
+    power->ball_powered = (player_num == 1 ? power->player_one_remaining :
+        power->player_two_remaining) > 0;
+    set_ball_serpent(game, (player_num == 1 ? power->player_one_serpent_remaining :
+        power->player_two_serpent_remaining) > 0);
+    power->ball_charged = false;
+    catch_charged_ball(game, player_num);
+}
+
 void scene_update(game_t *game, float delta_time) {
     if (game->current_scene == SCENE_COUNTDOWN) {
         game->countdown_remaining -= delta_time;
@@ -333,7 +344,8 @@ void scene_update(game_t *game, float delta_time) {
         int slot = choose_ai_power_up(&game->power_ups.player_two_inventory,
             &game->player_two_pad, &game->ball, game->power_ups.player_two_remaining,
             game->power_ups.player_two_grow_remaining,
-            game->power_ups.player_two_serpent_remaining);
+            game->power_ups.player_two_serpent_remaining,
+            game->power_ups.player_two_charge_remaining);
         if (slot >= 0) {
             game->power_ups.player_two_inventory.selected = slot;
             use_power_up(game, 2);
@@ -354,20 +366,28 @@ void scene_update(game_t *game, float delta_time) {
         update_player_one_pad(&game->player_one_pad, step);
         update_player_two_pad(&game->player_two_pad, step);
         update_power_ups(game, step);
+        if (game->power_ups.ball_held_by) {
+            update_held_ball(game, step);
+            continue;
+        }
+        // A charged shot is faster than a speed boost, so it wins
         update_ball(&game->ball, step,
+            game->power_ups.ball_charged ? POWER_UP_CHARGE_MULTIPLIER :
             game->power_ups.ball_powered ? POWER_UP_BALL_MULTIPLIER : 1.f);
         weave_ball(game);
         if (check_collisions(&game->ball, &game->player_one_pad)) {
-            game->power_ups.ball_powered = game->power_ups.player_one_remaining > 0;
-            set_ball_serpent(game, game->power_ups.player_one_serpent_remaining > 0);
+            hit_ball(game, 1);
+            if (game->power_ups.ball_held_by) continue;
         }
         if (check_collisions(&game->ball, &game->player_two_pad)) {
-            game->power_ups.ball_powered = game->power_ups.player_two_remaining > 0;
-            set_ball_serpent(game, game->power_ups.player_two_serpent_remaining > 0);
+            hit_ball(game, 2);
+            if (game->power_ups.ball_held_by) continue;
         }
         check_wall_collisions(&game->ball, &game->player_one_score, &game->player_two_score);
         if (old_one_score != game->player_one_score || old_two_score != game->player_two_score) {
             game->power_ups.ball_powered = false;
+            game->power_ups.ball_charged = false;
+            game->power_ups.ball_held_by = 0;
             set_ball_serpent(game, false);
             game->power_ups.trail_count = 0;
             if (game->target_score > 0 &&
@@ -465,7 +485,7 @@ static void render_debug(game_t *game) {
     char const *target = game->debug_target_right ?
         (game->mode == MODE_PVC ? "TOWARD < CPU >" : "TOWARD < PLAYER 2 >") :
         "TOWARD < PLAYER 1 >";
-    render_centered_text(game, game->menu_font, 310, target, normal_color);
+    render_centered_text(game, game->menu_font, 330, target, normal_color);
     render_centered_text(game, game->hint_font, 400, "ENTER TO SPAWN - ESC TO RETURN", normal_color);
 }
 
