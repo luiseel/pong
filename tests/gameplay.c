@@ -653,12 +653,14 @@ static void check_inventory(void) {
     press_key(&game, SDLK_LEFT);
     assert(game.power_ups.player_two_remaining == 8 && two->count == 1 && two->selected == 0);
 
-    // One player uses A/Left to select and D/Right to use
+    // One player uses A to select and D or Space to use; arrows only move
     game.mode = MODE_PVC;
     catch_power_up(&game, 0, POWER_UP_GROW);
     press_key(&game, SDLK_LEFT);
-    assert(one->selected == 1 && two->count == 1);
     press_key(&game, SDLK_RIGHT);
+    assert(one->count == 2 && one->selected == 0 && two->count == 1);
+    press_key(&game, SDLK_a);
+    press_key(&game, SDLK_SPACE);
     assert(one->count == 1 && one->slots[0] == POWER_UP_SPEED_BOOST);
 
     // Keys do nothing outside play

@@ -18,7 +18,7 @@ make
 - Each new match and rematch begins with a 3, 2, 1, GO countdown; gameplay and power-up timers stay frozen until it finishes.
 - The first player to reach the selected score wins. On the winner screen, use W/S or Up/Down and Enter or Space to choose Rematch or Main menu. Rematches keep the selected winning score.
 - Play (2 players): use W/S for player one and Up/Down for player two. Player one uses A to select a stored power-up and D to use it. Player two uses Right to select and Left to use.
-- Play (1 player): use W/S or Up/Down for player one. Use A or Left to select a stored power-up, and D or Right to use it. The computer controls the right paddle. It moves a little slower than you and has some aim error. It also goes after pickups that drift toward it when the ball is not a threat. It uses growth immediately and powerful hits when the ball comes toward it.
+- Play (1 player): use W/S or Up/Down for player one. Use A to select a stored power-up, and D or Space to use it. The computer controls the right paddle. It moves a little slower than you and has some aim error. It also goes after pickups that drift toward it when the ball is not a threat. It uses growth immediately and powerful hits when the ball comes toward it.
 - Press Escape during a match to pause. Scores, positions, and power-up timers stay frozen. Press Escape again to resume, or use W/S or Up/Down and Enter or Space to choose Resume or Main Menu.
 - Press Escape during setup, the countdown, or on the winner or credits screen to return to the title screen.
 - Press Escape on the title screen to quit.

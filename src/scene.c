@@ -142,13 +142,14 @@ static void handle_play_event(game_t *game, SDL_Event const *event) {
         case SDLK_d:
             use_power_up(game, 1);
             break;
+        case SDLK_SPACE:
+            if (solo) use_power_up(game, 1);
+            break;
         case SDLK_LEFT:
-            if (solo) select_power_up(game, 1);
-            else use_power_up(game, 2);
+            if (!solo) use_power_up(game, 2);
             break;
         case SDLK_RIGHT:
-            if (solo) use_power_up(game, 1);
-            else select_power_up(game, 2);
+            if (!solo) select_power_up(game, 2);
             break;
         default:
             break;
