@@ -83,13 +83,17 @@ void terminate_game(game_t *game) {
 }
 
 int run_game(game_t *game) {
-    const int target_fps = 60;
-    const float target_frame_time = 1000.0f / target_fps;
-    Uint32 last_time, fps_last_time = SDL_GetTicks();
-    Uint32 current_time = SDL_GetTicks();
+    const Uint64 target_fps = 60;
+    const float max_delta_time = 0.1f;
+    Uint64 frequency = SDL_GetPerformanceFrequency();
+    Uint64 last_time, current_time;
     float delta_time;
+#ifdef PONG_LOG_FPS
+    Uint64 fps_last_time;
     int frame_count = 0;
-    float fps = 0;
+#endif
+    SDL_bool has_vsync = SDL_FALSE;
+    SDL_RendererInfo info;
 
     if (init_game(game) != 0) {
         SDL_Log("Couldn't initialize game: %s", SDL_GetError());
@@ -101,10 +105,25 @@ int run_game(game_t *game) {
     }
     change_scene(game, SCENE_TITLE);
 
+    if (SDL_GetRendererInfo(game->renderer, &info) == 0 &&
+        (info.flags & SDL_RENDERER_PRESENTVSYNC)) {
+        has_vsync = SDL_TRUE;
+    }
+    const Uint64 target_frame_counts = frequency / target_fps;
+
+    current_time = SDL_GetPerformanceCounter();
+    Uint64 next_frame_time = current_time + target_frame_counts;
+#ifdef PONG_LOG_FPS
+    fps_last_time = current_time;
+#endif
+
     while (game->is_running) {
         last_time = current_time;
-        current_time = SDL_GetTicks();
-        delta_time = (current_time - last_time) / 1000.0f;
+        current_time = SDL_GetPerformanceCounter();
+        delta_time = (float)((double)(current_time - last_time) / (double)frequency);
+        if (delta_time > max_delta_time) {
+            delta_time = max_delta_time;
+        }
 
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -115,26 +134,34 @@ int run_game(game_t *game) {
             }
         }
 
-        if (game->current_scene != SCENE_COUNTDOWN &&
-            delta_time > target_frame_time / 1000.0f) {
-            delta_time = target_frame_time / 1000.0f;
-        }
-
         scene_update(game, delta_time);
         scene_render(game);
 
+#ifdef PONG_LOG_FPS
+        Uint64 fps_now = SDL_GetPerformanceCounter();
         frame_count++;
-        Uint32 elapsed_time = SDL_GetTicks() - fps_last_time;
-        if (elapsed_time >= 1000) {
-            fps = (float) frame_count / elapsed_time * 1000.0f;
+        Uint64 fps_elapsed = fps_now - fps_last_time;
+        if (fps_elapsed >= frequency) {
+            double fps = (double)frame_count * (double)frequency / (double)fps_elapsed;
             SDL_Log("FPS: %.2f", fps);
             frame_count = 0;
-            fps_last_time = SDL_GetTicks();
+            fps_last_time = fps_now;
         }
+#endif
 
-        Uint32 elapsed_time2 = SDL_GetTicks() - current_time;
-        if (elapsed_time2 < target_frame_time) {
-            SDL_Delay((Uint32)(target_frame_time - elapsed_time2));
+        if (!has_vsync) {
+            /* Sleep to a fixed schedule so sleep overshoot does not accumulate. */
+            Uint64 now = SDL_GetPerformanceCounter();
+            if (now < next_frame_time) {
+                Uint64 remaining = next_frame_time - now;
+                Uint32 delay_ms = (Uint32)((remaining * 1000 + frequency - 1) / frequency);
+                SDL_Delay(delay_ms);
+            }
+            next_frame_time += target_frame_counts;
+            if (next_frame_time < now) {
+                /* More than a frame behind: restart the schedule from now. */
+                next_frame_time = now + target_frame_counts;
+            }
         }
     }
 
