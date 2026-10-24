@@ -7,6 +7,7 @@
 #include "game.h"
 
 #define MENU_ITEM_COUNT 3
+#define DEBUG_ITEM_COUNT 3
 
 static SDL_Color const normal_color = { 235, 219, 178, 255 };
 static SDL_Color const selected_color = { 251, 73, 52, 255 };
@@ -19,6 +20,16 @@ static struct {
     { "1 PLAYER", 210 },
     { "2 PLAYERS", 274 },
     { "CREDITS", 338 },
+};
+
+// Indexed by power_up_kind_t
+static struct {
+    char const *label;
+    int y;
+} const debug_items[DEBUG_ITEM_COUNT] = {
+    { "SPEED", 130 },
+    { "GROW", 185 },
+    { "SERPENT", 240 },
 };
 
 static void render_selection_indicator(game_t *game, int y, char const *text) {
@@ -82,6 +93,7 @@ void change_scene(game_t *game, scene_id_t next_scene) {
             break;
         case SCENE_PAUSE:
         case SCENE_WINNER:
+        case SCENE_DEBUG:
             game->selected_menu_item = 0;
             break;
         case SCENE_CREDITS:
@@ -136,6 +148,9 @@ static void handle_play_event(game_t *game, SDL_Event const *event) {
         case SDLK_ESCAPE:
             change_scene(game, SCENE_PAUSE);
             break;
+        case SDLK_F1:
+            if (game->debug) change_scene(game, SCENE_DEBUG);
+            break;
         case SDLK_a:
             select_power_up(game, 1);
             break;
@@ -170,6 +185,39 @@ static void handle_pause_event(game_t *game, SDL_Event const *event) {
             change_scene(game, game->selected_menu_item == 0 ? SCENE_PLAY : SCENE_TITLE);
             break;
         case SDLK_ESCAPE:
+            change_scene(game, SCENE_PLAY);
+            break;
+        default:
+            break;
+    }
+}
+
+static void handle_debug_event(game_t *game, SDL_Event const *event) {
+    if (event->type != SDL_KEYDOWN || event->key.repeat) return;
+    switch (event->key.keysym.sym) {
+        case SDLK_UP:
+        case SDLK_w:
+            game->selected_menu_item = (game->selected_menu_item + DEBUG_ITEM_COUNT - 1) %
+                DEBUG_ITEM_COUNT;
+            break;
+        case SDLK_DOWN:
+        case SDLK_s:
+            game->selected_menu_item = (game->selected_menu_item + 1) % DEBUG_ITEM_COUNT;
+            break;
+        case SDLK_LEFT:
+        case SDLK_RIGHT:
+        case SDLK_a:
+        case SDLK_d:
+            game->debug_target_right = !game->debug_target_right;
+            break;
+        case SDLK_RETURN:
+        case SDLK_SPACE:
+            debug_spawn_power_up(game, (power_up_kind_t)game->selected_menu_item,
+                game->debug_target_right ? 2 : 1);
+            change_scene(game, SCENE_PLAY);
+            break;
+        case SDLK_ESCAPE:
+        case SDLK_F1:
             change_scene(game, SCENE_PLAY);
             break;
         default:
@@ -257,6 +305,9 @@ void scene_handle_event(game_t *game, SDL_Event const *event) {
             break;
         case SCENE_CREDITS:
             handle_credits_event(game, event);
+            break;
+        case SCENE_DEBUG:
+            handle_debug_event(game, event);
             break;
     }
 }
@@ -399,6 +450,27 @@ static void render_pause(game_t *game) {
     render_centered_text(game, game->hint_font, 380, "ESC TO RESUME", normal_color);
 }
 
+static void render_debug(game_t *game) {
+    render_play(game);
+    SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(game->renderer, 39, 39, 39, 220);
+    SDL_RenderFillRect(game->renderer, NULL);
+    SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_NONE);
+
+    render_centered_text(game, game->font, 30, "SPAWN PICKUP", normal_color);
+    for (int i = 0; i < DEBUG_ITEM_COUNT; i++) {
+        render_centered_text(game, game->menu_font, debug_items[i].y, debug_items[i].label,
+            game->selected_menu_item == i ? selected_color : normal_color);
+    }
+    render_selection_indicator(game, debug_items[game->selected_menu_item].y,
+        debug_items[game->selected_menu_item].label);
+    char const *target = game->debug_target_right ?
+        (game->mode == MODE_PVC ? "TOWARD < CPU >" : "TOWARD < PLAYER 2 >") :
+        "TOWARD < PLAYER 1 >";
+    render_centered_text(game, game->menu_font, 310, target, normal_color);
+    render_centered_text(game, game->hint_font, 400, "ENTER TO SPAWN - ESC TO RETURN", normal_color);
+}
+
 static void render_credits(game_t *game) {
     render_centered_text(game, game->font, 70, "CREDITS", normal_color);
     render_centered_text(game, game->menu_font, 210, "LUISEEL", normal_color);
@@ -472,6 +544,9 @@ void scene_render(game_t *game) {
             break;
         case SCENE_PAUSE:
             render_pause(game);
+            break;
+        case SCENE_DEBUG:
+            render_debug(game);
             break;
         case SCENE_CREDITS:
             render_credits(game);

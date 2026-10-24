@@ -13,7 +13,8 @@ typedef enum {
     SCENE_PLAY,
     SCENE_PAUSE,
     SCENE_WINNER,
-    SCENE_CREDITS
+    SCENE_CREDITS,
+    SCENE_DEBUG
 } scene_id_t;
 
 void change_scene(game_t *, scene_id_t);
