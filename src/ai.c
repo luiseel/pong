@@ -43,8 +43,17 @@ void update_ai_pad(ai_state_t *ai, pad_t *pad, ball_t const *ball,
                    power_up_state_t const *power, float delta_time) {
     // Only objects still in front of the pad count; anything past it is gone
     bool ball_incoming = is_ball_incoming(ball, pad);
-    bool power_incoming = power->active && power->velocity.x > 0.f &&
-        power->position.x < pad->position.x;
+    power_up_pickup_t const *target_pickup = NULL;
+    float soonest_arrival = 0;
+    for (power_up_pickup_t const *pickup = &power->pickup; pickup; pickup = pickup->next) {
+        if (!pickup->active || pickup->velocity.x <= 0.f || pickup->position.x >= pad->position.x)
+            continue;
+        float arrival = (pad->position.x - pickup->position.x) / pickup->velocity.x;
+        if (!target_pickup || arrival < soonest_arrival) {
+            target_pickup = pickup;
+            soonest_arrival = arrival;
+        }
+    }
 
     if (ball_incoming) {
         if (!ai->tracking) {
@@ -58,12 +67,12 @@ void update_ai_pad(ai_state_t *ai, pad_t *pad, ball_t const *ball,
                 pad->position.x - ball->width) + ai->aim_offset;
             ai->target_y = clamp_target(pad, target);
         }
-    } else if (power_incoming) {
+    } else if (target_pickup) {
         // Ball is no threat: go and collect the pickup drifting this way
         ai->tracking = false;
         ai->reaction_remaining = 0.f;
-        ai->target_y = clamp_target(pad, predict_y(power->position, POWER_UP_SIZE,
-            power->velocity, pad->position.x - POWER_UP_SIZE));
+        ai->target_y = clamp_target(pad, predict_y(target_pickup->position, POWER_UP_SIZE,
+            target_pickup->velocity, pad->position.x - POWER_UP_SIZE));
     } else {
         // Nothing to do: drift to center, react at once later
         ai->tracking = false;
