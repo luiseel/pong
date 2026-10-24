@@ -13,6 +13,7 @@ make
 
 ## Controls
 
+- Press F11 or Alt+Enter (Option+Return on Mac) on any screen to toggle fullscreen. On Mac, you may need fn+F11. The playfield keeps its 4:3 proportions, with bars on wider screens.
 - Title screen: use W/S or the arrow keys to select 1 Player, 2 Players, or Credits, then Enter or Space to confirm.
 - Match setup: use Left/Right or A/D to choose a winning score from 1–21 (default 5), then Enter or Space to start.
 - Each new match and rematch begins with a 3, 2, 1, GO countdown; gameplay and power-up timers stay frozen until it finishes.
