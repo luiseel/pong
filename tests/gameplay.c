@@ -347,8 +347,15 @@ static void check_charge_blast(void) {
             (pad->position.y + pad->height / 2.f)) < 0.001f);
     }
     assert(pad->position.y > GAME_HEIGHT / 2);
+
+    // Other timers continue during the hold
+    float spawn = game.power_ups.spawn_remaining;
+    game.power_ups.player_two_remaining = 8;
     for (int i = 0; i < 114; i++) scene_update(&game, 1.f / 60.f);
     assert(game.power_ups.ball_held_by == 1);
+    assert(fabsf(game.power_ups.player_two_remaining - (8 - 114 / 60.f)) < 0.01f);
+    assert(fabsf(game.power_ups.spawn_remaining - (spawn - 114 / 60.f)) < 0.01f);
+    game.power_ups.player_two_remaining = 0;
 
     // After the hold, the ball goes straight at the charge speed
     for (int i = 0; i < 6 && game.power_ups.ball_held_by; i++) scene_update(&game, 1.f / 60.f);
@@ -366,12 +373,13 @@ static void check_charge_blast(void) {
     scene_update(&game, 1.f / 60.f);
     assert(game.power_ups.ball_held_by == 0 && !game.power_ups.ball_charged);
 
-    // With speed, the charge speed wins; with serpent, the shot weaves
+    // With speed, the charge speed wins; a serpent used during the hold makes the shot weave
     game.power_ups.player_one_charge_remaining = 8;
     game.power_ups.player_one_remaining = 8;
-    game.power_ups.player_one_serpent_remaining = 8;
     aim_at_pad(&game, 0);
     scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_held_by == 1 && !game.power_ups.ball_serpent);
+    game.power_ups.player_one_serpent_remaining = 8;
     game.power_ups.hold_remaining = 0.001f;
     scene_update(&game, 1.f / 60.f);
     assert(game.power_ups.ball_charged && game.power_ups.ball_serpent);
@@ -386,6 +394,16 @@ static void check_charge_blast(void) {
     game.ball.velocity = (vector_2d_t){1, 0};
     scene_update(&game, 1.f / 60.f);
     assert(game.player_one_score == 1 && !game.power_ups.ball_charged);
+
+    // Player two holds the ball on its face and shoots it to the left
+    game.power_ups.player_two_charge_remaining = 8;
+    aim_at_pad(&game, 1);
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_held_by == 2);
+    assert(game.ball.position.x == game.player_two_pad.position.x - game.ball.width);
+    game.power_ups.hold_remaining = 0.001f;
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_charged && game.ball.velocity.x < 0 && game.ball.velocity.y == 0);
 
     // An unused charge runs out, and a later hit is normal
     game.power_ups.player_one_charge_remaining = 8;
@@ -670,6 +688,8 @@ static void check_ai_power_up(void) {
     scene_update(&game, 1.f / 60.f);
     assert(game.power_ups.player_two_inventory.count == 1);
     assert(game.power_ups.player_two_charge_remaining > 0);
+    scene_update(&game, 1.f / 60.f);
+    assert(game.power_ups.player_two_inventory.count == 1);
 
     // An incoming ball takes priority over the pickup
     game = new_match();

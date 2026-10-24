@@ -223,6 +223,9 @@ void update_held_ball(game_t *game, float delta_time) {
     ball->previous_position = ball->position;
     power->hold_remaining -= delta_time;
     if (power->hold_remaining > 0) return;
+    // A serpent used during the hold still makes the shot weave
+    set_ball_serpent(game, (power->ball_held_by == 1 ? power->player_one_serpent_remaining :
+        power->player_two_serpent_remaining) > 0);
     power->ball_held_by = 0;
     power->hold_remaining = 0;
     power->ball_charged = true;
