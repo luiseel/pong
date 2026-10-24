@@ -75,13 +75,19 @@ static void render_selection_indicator(game_t *game, int y, char const *text) {
 }
 
 void change_scene(game_t *game, scene_id_t next_scene) {
+    if (next_scene == SCENE_PAUSE) game->paused_scene = game->current_scene;
     game->current_scene = next_scene;
+    input_reset_menu(&game->input);
 
     switch (next_scene) {
         case SCENE_TITLE:
             game->selected_menu_item = 0;
             break;
         case SCENE_SETUP:
+            game->selected_menu_item = 0;
+            if (game->mode == MODE_PVP && game->input.player_device[0] &&
+                game->input.player_device[0] == game->input.player_device[1])
+                game->input.player_device[1] = 0;
             if (game->target_score < 1 || game->target_score > MATCH_MAX_TARGET) {
                 game->target_score = MATCH_DEFAULT_TARGET;
             }
@@ -172,24 +178,44 @@ static void handle_play_event(game_t *game, SDL_Event const *event) {
     }
 }
 
+static void resume_game(game_t *game) {
+    if (!input_ready(&game->input, game->mode == MODE_PVC)) return;
+    if (game->paused_scene == SCENE_COUNTDOWN) {
+        game->current_scene = SCENE_COUNTDOWN;
+        input_reset_menu(&game->input);
+    } else change_scene(game, SCENE_PLAY);
+}
+
 static void handle_pause_event(game_t *game, SDL_Event const *event) {
     if (event->type != SDL_KEYDOWN || event->key.repeat) return;
+    int count = game->mode == MODE_PVC ? 3 : 4;
     switch (event->key.keysym.sym) {
         case SDLK_UP:
-        case SDLK_DOWN:
         case SDLK_w:
+            game->selected_menu_item = (game->selected_menu_item + count - 1) % count;
+            break;
+        case SDLK_DOWN:
         case SDLK_s:
-            game->selected_menu_item = 1 - game->selected_menu_item;
+            game->selected_menu_item = (game->selected_menu_item + 1) % count;
+            break;
+        case SDLK_LEFT:
+        case SDLK_a:
+        case SDLK_RIGHT:
+        case SDLK_d:
+            if (game->selected_menu_item >= 2)
+                input_cycle_device(&game->input, game->selected_menu_item - 2,
+                    event->key.keysym.sym == SDLK_LEFT || event->key.keysym.sym == SDLK_a ? -1 : 1,
+                    game->mode == MODE_PVC);
             break;
         case SDLK_RETURN:
         case SDLK_SPACE:
-            change_scene(game, game->selected_menu_item == 0 ? SCENE_PLAY : SCENE_TITLE);
+            if (game->selected_menu_item == 0) resume_game(game);
+            if (game->selected_menu_item == 1) change_scene(game, SCENE_TITLE);
             break;
         case SDLK_ESCAPE:
-            change_scene(game, SCENE_PLAY);
+            resume_game(game);
             break;
-        default:
-            break;
+        default: break;
     }
 }
 
@@ -244,24 +270,37 @@ static void handle_credits_event(game_t *game, SDL_Event const *event) {
 
 static void handle_setup_event(game_t *game, SDL_Event const *event) {
     if (event->type != SDL_KEYDOWN || event->key.repeat) return;
+    int count = game->mode == MODE_PVC ? 2 : 3;
     switch (event->key.keysym.sym) {
+        case SDLK_UP:
+        case SDLK_w:
+            game->selected_menu_item = (game->selected_menu_item + count - 1) % count;
+            break;
+        case SDLK_DOWN:
+        case SDLK_s:
+            game->selected_menu_item = (game->selected_menu_item + 1) % count;
+            break;
         case SDLK_LEFT:
         case SDLK_a:
-            if (game->target_score > 1) game->target_score--;
-            break;
         case SDLK_RIGHT:
-        case SDLK_d:
-            if (game->target_score < MATCH_MAX_TARGET) game->target_score++;
+        case SDLK_d: {
+            int direction = event->key.keysym.sym == SDLK_LEFT || event->key.keysym.sym == SDLK_a ? -1 : 1;
+            if (game->selected_menu_item == 0) {
+                game->target_score += direction;
+                if (game->target_score < 1) game->target_score = 1;
+                if (game->target_score > MATCH_MAX_TARGET) game->target_score = MATCH_MAX_TARGET;
+            } else input_cycle_device(&game->input, game->selected_menu_item - 1, direction,
+                game->mode == MODE_PVC);
             break;
+        }
         case SDLK_RETURN:
         case SDLK_SPACE:
-            change_scene(game, SCENE_COUNTDOWN);
+            if (input_ready(&game->input, game->mode == MODE_PVC)) change_scene(game, SCENE_COUNTDOWN);
             break;
         case SDLK_ESCAPE:
             change_scene(game, SCENE_TITLE);
             break;
-        default:
-            break;
+        default: break;
     }
 }
 
@@ -277,7 +316,7 @@ static void handle_winner_event(game_t *game, SDL_Event const *event) {
         case SDLK_RETURN:
         case SDLK_SPACE:
             change_scene(game, game->selected_menu_item == 0 ?
-                SCENE_COUNTDOWN : SCENE_TITLE);
+                (input_ready(&game->input, game->mode == MODE_PVC) ? SCENE_COUNTDOWN : SCENE_SETUP) : SCENE_TITLE);
             break;
         case SDLK_ESCAPE:
             change_scene(game, SCENE_TITLE);
@@ -288,6 +327,24 @@ static void handle_winner_event(game_t *game, SDL_Event const *event) {
 }
 
 void scene_handle_event(game_t *game, SDL_Event const *event) {
+    input_device_event(&game->input, event);
+    if (!input_ready(&game->input, game->mode == MODE_PVC) &&
+        (game->current_scene == SCENE_PLAY || game->current_scene == SCENE_COUNTDOWN ||
+         game->current_scene == SCENE_DEBUG)) {
+        game->player_one_pad.goal_velocity.y = game->player_one_pad.velocity.y = 0;
+        game->player_two_pad.goal_velocity.y = game->player_two_pad.velocity.y = 0;
+        change_scene(game, SCENE_PAUSE);
+        return;
+    }
+    SDL_Event translated;
+    if (!input_translate(&game->input, event, game->current_scene == SCENE_PLAY,
+        game->mode == MODE_PVC, &translated)) return;
+    if (event->type == SDL_CONTROLLERBUTTONDOWN &&
+        event->cbutton.button == SDL_CONTROLLER_BUTTON_START) {
+        if (game->current_scene == SCENE_COUNTDOWN) { change_scene(game, SCENE_PAUSE); return; }
+        if (game->current_scene != SCENE_PLAY && game->current_scene != SCENE_PAUSE) return;
+    }
+    event = &translated;
     switch (game->current_scene) {
         case SCENE_TITLE:
             handle_title_event(game, event);
@@ -341,9 +398,8 @@ void scene_update(game_t *game, float delta_time) {
         return;
     }
 
-    Uint8 const *keyboard = SDL_GetKeyboardState(NULL);
+    game->player_one_pad.goal_velocity.y = input_movement(&game->input, 0, game->mode == MODE_PVC);
     if (game->mode == MODE_PVC) {
-        handle_solo_pad_keys(&game->player_one_pad, keyboard);
         update_ai_pad(&game->ai, &game->player_two_pad, &game->ball,
             &game->power_ups, delta_time);
         int slot = choose_ai_power_up(&game->power_ups.player_two_inventory,
@@ -356,10 +412,7 @@ void scene_update(game_t *game, float delta_time) {
             use_power_up(game, 2);
         }
     } else {
-        handle_pad_key_release(&game->player_one_pad, keyboard, 1);
-        handle_pad_key_release(&game->player_two_pad, keyboard, 2);
-        handle_pad_key_press(&game->player_one_pad, keyboard, 1);
-        handle_pad_key_press(&game->player_two_pad, keyboard, 2);
+        game->player_two_pad.goal_velocity.y = input_movement(&game->input, 1, false);
     }
 
     int old_one_score = game->player_one_score;
@@ -408,6 +461,7 @@ void scene_update(game_t *game, float delta_time) {
 }
 
 static void render_title(game_t *game) {
+    render_centered_text(game, game->hint_font, 430, "ARROWS / D-PAD: SELECT  ENTER / A: OK", normal_color);
     render_centered_text(game, game->font, 70, "PONG", normal_color);
     for (int i = 0; i < MENU_ITEM_COUNT; i++) {
         bool selected = game->selected_menu_item == i;
@@ -468,9 +522,17 @@ static void render_pause(game_t *game) {
         game->selected_menu_item == 0 ? selected_color : normal_color);
     render_centered_text(game, game->menu_font, 274, "MAIN MENU",
         game->selected_menu_item == 1 ? selected_color : normal_color);
-    render_selection_indicator(game, game->selected_menu_item == 0 ? 210 : 274,
+    if (game->selected_menu_item < 2) render_selection_indicator(game, game->selected_menu_item == 0 ? 210 : 274,
         game->selected_menu_item == 0 ? "RESUME" : "MAIN MENU");
-    render_centered_text(game, game->hint_font, 380, "ESC TO RESUME", normal_color);
+    for (int p = 0; p < (game->mode == MODE_PVC ? 1 : 2); p++) {
+        char label[100];
+        input_device_label(&game->input, p, label, sizeof(label));
+        render_centered_text(game, game->hint_font, 330 + p * 30, label,
+            game->selected_menu_item == p + 2 ? selected_color : normal_color);
+    }
+    render_centered_text(game, game->hint_font, 410,
+        input_ready(&game->input, game->mode == MODE_PVC) ? "ESC / START: RESUME" : "RECONNECT OR CHANGE DEVICE", normal_color);
+    render_centered_text(game, game->hint_font, 445, "UP/DOWN: SELECT  LEFT/RIGHT: CHANGE", normal_color);
 }
 
 static void render_debug(game_t *game) {
@@ -492,22 +554,31 @@ static void render_debug(game_t *game) {
         "TARGET < PLAYER 1 >";
     render_centered_text(game, game->menu_font, 330, target, normal_color);
     render_centered_text(game, game->hint_font, 390, "ENTER/SPACE: SPAWN - G: GIVE NOW", normal_color);
-    render_centered_text(game, game->hint_font, 430, "ESC TO RETURN", normal_color);
+    render_centered_text(game, game->hint_font, 430, "ESC / B: RETURN", normal_color);
 }
 
 static void render_credits(game_t *game) {
     render_centered_text(game, game->font, 70, "CREDITS", normal_color);
     render_centered_text(game, game->menu_font, 210, "LUISEEL", normal_color);
-    render_centered_text(game, game->hint_font, 340, "ESC TO RETURN", normal_color);
+    render_centered_text(game, game->hint_font, 340, "ESC / B: RETURN", normal_color);
 }
 
 static void render_setup(game_t *game) {
     char target[32];
-    snprintf(target, sizeof(target), "< %d >", game->target_score);
-    render_centered_text(game, game->font, 30, "FIRST TO", normal_color);
-    render_centered_text(game, game->font, 130, target, selected_color);
-    render_centered_text(game, game->hint_font, 250, "ENTER TO START", normal_color);
-    render_centered_text(game, game->hint_font, 350, "ESC TO RETURN", normal_color);
+    snprintf(target, sizeof(target), "FIRST TO < %d >", game->target_score);
+    render_centered_text(game, game->font, 30, "MATCH SETUP", normal_color);
+    render_centered_text(game, game->menu_font, 140, target,
+        game->selected_menu_item == 0 ? selected_color : normal_color);
+    for (int p = 0; p < (game->mode == MODE_PVC ? 1 : 2); p++) {
+        char label[100];
+        input_device_label(&game->input, p, label, sizeof(label));
+        render_centered_text(game, game->hint_font, 230 + p * 50, label,
+            game->selected_menu_item == p + 1 ? selected_color : normal_color);
+    }
+    render_centered_text(game, game->hint_font, 350, "UP/DOWN: SELECT  LEFT/RIGHT: CHANGE", normal_color);
+    render_centered_text(game, game->hint_font, 390,
+        input_ready(&game->input, game->mode == MODE_PVC) ? "ENTER / A: START" : "RECONNECT OR CHANGE DEVICE", normal_color);
+    render_centered_text(game, game->hint_font, 430, "ESC / B: RETURN", normal_color);
 }
 
 static void render_countdown(game_t *game) {

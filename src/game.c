@@ -3,9 +3,11 @@
 #include <time.h>
 
 int init_game(game_t *game) {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) {
         return 1;
     }
+
+    input_init(&game->input);
 
     game->window = SDL_CreateWindow(
         GAME_TITLE,
@@ -78,6 +80,7 @@ void reset_match(game_t *game) {
 }
 
 void terminate_game(game_t *game) {
+    input_close(&game->input);
     clear_power_up_pickups(game);
     SDL_DestroyWindow(game->window);
     SDL_DestroyRenderer(game->renderer);
@@ -150,6 +153,8 @@ int run_game(game_t *game) {
             }
         }
 
+        if (game->current_scene != SCENE_PLAY && game->current_scene != SCENE_COUNTDOWN &&
+            input_menu_repeat(&game->input, &event)) scene_handle_event(game, &event);
         scene_update(game, delta_time);
         scene_render(game);
 

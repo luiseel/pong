@@ -158,49 +158,6 @@ bool check_collisions(ball_t *ball, pad_t *pad) {
     return true;
 }
 
-void handle_pad_key_press(pad_t *pad, Uint8 const *state, int player_num) {
-    if (player_num == 1) {
-        if (state[SDL_SCANCODE_S]) {
-            pad->goal_velocity.y = 1.f;
-        }
-        if (state[SDL_SCANCODE_W]) {
-            pad->goal_velocity.y = -1.f;
-        }
-    } else {
-        if (state[SDL_SCANCODE_DOWN]) {
-            pad->goal_velocity.y = 1.f;
-        }
-        if (state[SDL_SCANCODE_UP]) {
-            pad->goal_velocity.y = -1.f;
-        }
-    }
-}
-
-void handle_pad_key_release(pad_t *pad, Uint8 const *state, int player_num) {
-    if (player_num == 1) {
-        if (!state[SDL_SCANCODE_S] && !state[SDL_SCANCODE_W]) {
-            pad->goal_velocity.y = 0;
-        }
-    } else {
-        if (!state[SDL_SCANCODE_UP] && !state[SDL_SCANCODE_DOWN]) {
-            pad->goal_velocity.y = 0;
-        }
-    }
-}
-
-void handle_solo_pad_keys(pad_t *pad, Uint8 const *state) {
-    bool up = state[SDL_SCANCODE_W] || state[SDL_SCANCODE_UP];
-    bool down = state[SDL_SCANCODE_S] || state[SDL_SCANCODE_DOWN];
-
-    pad->goal_velocity.y = 0;
-    if (down) {
-        pad->goal_velocity.y = 1.f;
-    }
-    if (up) {
-        pad->goal_velocity.y = -1.f;
-    }
-}
-
 void render_entity(entity_t *entity, SDL_Renderer *renderer) {
     SDL_Rect dest;
     dest.x = entity->position.x;

@@ -15,7 +15,7 @@ make
 
 - Press F11 or Alt+Enter (Option+Return on Mac) on any screen to toggle fullscreen. On Mac, you may need fn+F11. The playfield keeps its 4:3 proportions, with bars on wider screens.
 - Title screen: use W/S or the arrow keys to select 1 Player, 2 Players, or Credits, then Enter or Space to confirm.
-- Match setup: use Left/Right or A/D to choose a winning score from 1–21 (default 5), then Enter or Space to start.
+- Match setup: use Up/Down or W/S to select the winning score or a player’s device; Left/Right or A/D changes it. The winning score ranges from 1–21 (default 5). Press Enter or Space to start.
 - Each new match and rematch begins with a 3, 2, 1, GO countdown; gameplay and power-up timers stay frozen until it finishes.
 - The first player to reach the selected score wins. On the winner screen, use W/S or Up/Down and Enter or Space to choose Rematch or Main menu. Rematches keep the selected winning score.
 - Play (2 players): use W/S for player one and Up/Down for player two. Player one uses A to select a stored power-up and D to use it. Player two uses Right to select and Left to use.
@@ -23,6 +23,40 @@ make
 - Press Escape during a match to pause. Scores, positions, and power-up timers stay frozen. Press Escape again to resume, or use W/S or Up/Down and Enter or Space to choose Resume or Main Menu.
 - Press Escape during setup, the countdown, or on the winner or credits screen to return to the title screen.
 - Press Escape on the title screen to quit.
+
+## Gamepads
+
+Use a Retroflag Classic USB Gamepad, Switch Pro controller (USB or paired Bluetooth),
+or another SDL2-mapped controller. In match setup, select each player's device:
+keyboard, a connected controller, or one of each. Two players can share the
+keyboard using the existing controls; a controller can belong to only one player.
+Assignments stay in place for rematches. The computer needs no device in solo play.
+
+- D-pad: move the paddle or navigate menus. The left stick also works, with a 20%
+  dead zone and proportional paddle speed. D-pad movement uses full speed.
+- A: confirm in menus; use the selected power-up during play.
+- B: go back in menus (quits from the title screen).
+- L / left shoulder: select the next stored power-up.
+- Start / +: pause or resume; also pauses the opening countdown.
+
+Switch Pro face buttons follow their printed labels. Other devices use their SDL
+mapping; verify the Retroflag's labels when first connecting it. Keyboard gameplay
+controls apply only to players assigned to the keyboard. Keyboard menu controls
+remain available, and any connected controller can navigate menus.
+
+Devices can be connected while the game is running. Disconnecting an assigned
+controller pauses the match or countdown. Reconnect it, or use Up/Down and
+Left/Right in the pause menu to assign a replacement (including the keyboard),
+then explicitly resume. Switching between USB and Bluetooth may appear as a new
+device and require reassignment. The countdown resumes where it stopped.
+
+If a controller is not listed, check the terminal for its name and GUID. The game
+loads optional SDL mappings from `gamecontrollerdb.txt` in the working directory;
+add a mapping for that exact device and restart. No raw button numbers are assumed
+for unrecognized devices.
+
+`make test` includes virtual-controller checks (SDL 2.24 or newer). Physical button
+labels, USB/Bluetooth transport, and stick feel still need checking on the devices.
 
 ## Power-ups
 
