@@ -908,6 +908,35 @@ static void check_debug_menu(void) {
     assert(game.current_scene == SCENE_PLAY && !game.power_ups.active);
 }
 
+static void check_debug_give(void) {
+    for (int player = 1; player <= 2; player++) {
+        game_t game = new_match();
+        game.debug = true;
+        debug_spawn_power_up(&game, POWER_UP_CHARGE, 1);
+        float countdown = game.power_ups.spawn_remaining;
+        power_up_inventory_t *inventory = player == 1 ?
+            &game.power_ups.player_one_inventory : &game.power_ups.player_two_inventory;
+        for (int kind = POWER_UP_SPEED_BOOST; kind <= POWER_UP_CHARGE; kind++) {
+            press_key(&game, SDLK_F1);
+            if (player == 2 && kind == POWER_UP_SPEED_BOOST) press_key(&game, SDLK_RIGHT);
+            for (int i = 0; i < kind; i++) press_key(&game, SDLK_DOWN);
+            press_key(&game, SDLK_g);
+            assert(game.current_scene == SCENE_PLAY);
+            assert(inventory->count == (kind < POWER_UP_SLOTS ? kind + 1 : POWER_UP_SLOTS));
+            assert(inventory->slots[inventory->selected] == (power_up_kind_t)kind);
+            assert(game.power_ups.active && game.power_ups.kind == POWER_UP_CHARGE);
+            assert(game.power_ups.spawn_remaining == countdown);
+        }
+        power_up_inventory_t *other = player == 1 ?
+            &game.power_ups.player_two_inventory : &game.power_ups.player_one_inventory;
+        assert(other->count == 0);
+        press_key(&game, player == 1 ? SDLK_d : SDLK_LEFT);
+        assert(inventory->count == POWER_UP_SLOTS - 1);
+        assert((player == 1 ? game.power_ups.player_one_charge_remaining :
+            game.power_ups.player_two_charge_remaining) == POWER_UP_DURATION);
+    }
+}
+
 static void check_pvp_unchanged(void) {
     game_t game = new_match();
     game.player_two_pad.position.y = 0;
@@ -945,6 +974,7 @@ int main(void) {
     check_mode_select();
     check_inventory();
     check_debug_menu();
+    check_debug_give();
     check_pvp_unchanged();
     Mix_CloseAudio();
     SDL_Quit();

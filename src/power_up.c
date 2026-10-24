@@ -96,6 +96,12 @@ static power_up_inventory_t *inventory_for(game_t *game, int player_num) {
         &game->power_ups.player_two_inventory;
 }
 
+void debug_give_power_up(game_t *game, power_up_kind_t kind, int player_num) {
+    power_up_inventory_t *inventory = inventory_for(game, player_num);
+    if (inventory->count < POWER_UP_SLOTS) inventory->selected = inventory->count++;
+    inventory->slots[inventory->selected] = kind;
+}
+
 void select_power_up(game_t *game, int player_num) {
     power_up_inventory_t *inventory = inventory_for(game, player_num);
     if (inventory->count > 0) inventory->selected = (inventory->selected + 1) % inventory->count;

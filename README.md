@@ -74,9 +74,12 @@ at normal speed. Starting a new match clears all power-ups. Power timers run onl
 Build and start the debug version with `make debug && ./bin/pong-debug` to turn on
 the debug menu. During a match, press F1 to open it (on a Mac, hold fn unless F-keys
 are set as standard function keys); play stays frozen while it is open. Use W/S or
-Up/Down to choose a speed, grow, or serpent pickup, and Left/Right or A/D to choose the
+Up/Down to choose a speed, grow, serpent, or charge power-up, and Left/Right or A/D to choose the
 player it drifts toward. Press Enter or Space to spawn it at the center; it replaces any
-pickup already in the field and does not change the normal spawn countdown. Press Escape
-or F1 to close the menu without a spawn. In the normal build, F1 does nothing.
+pickup already in the field and does not change the normal spawn countdown. Press G to
+give it directly to the target player's inventory and select it, ready to use. If the
+inventory is full, this replaces its selected slot. Giving leaves field pickups and
+the spawn countdown unchanged. Both actions resume play. Press Escape or F1 to close
+the menu without giving or spawning. In the normal build, F1 does nothing.
 
 Run the gameplay checks with `make test`.
