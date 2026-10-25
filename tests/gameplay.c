@@ -78,7 +78,7 @@ static void check_pickup_lifecycle(void) {
         assert(!game.power_ups.pickup.active);
         assert(inventory->count == 1 && inventory->slots[0] == kind);
         assert(*timer < 2);
-        assert(game.power_ups.spawn_remaining >= 8 && game.power_ups.spawn_remaining <= 14);
+        assert(game.power_ups.spawn_remaining >= POWER_UP_SPAWN_MIN && game.power_ups.spawn_remaining <= POWER_UP_SPAWN_MAX);
         use_power_up(&game, player + 1);
         assert(*timer == 8.f && inventory->count == 0);
         update_power_ups(&game, 1);
@@ -365,6 +365,45 @@ static void check_charge_blast(void) {
     assert(game.ball.velocity.y == 0 && game.ball.position.y == y);
     assert(fabsf(game.ball.position.x - (x + BALL_SPEED * POWER_UP_CHARGE_MULTIPLIER * 0.01f)) < 0.01f);
 
+    // A moving pad aims the shot up to the aim angle
+    for (int player = 1; player <= 2; player++) {
+        for (int i = 0; i < 2; i++) {
+            float pad_velocity = i == 0 ? 1.f : -0.5f;
+            game.power_ups.ball_held_by = player;
+            game.power_ups.hold_remaining = 0.001f;
+            pad_t *aiming = player == 1 ? &game.player_one_pad : &game.player_two_pad;
+            aiming->velocity.y = pad_velocity;
+            update_held_ball(&game, 1.f / 60.f);
+            float aim = pad_velocity * POWER_UP_CHARGE_AIM_DEGREES * (float)M_PI / 180.f;
+            assert(fabsf(game.ball.velocity.x - (player == 1 ? cosf(aim) : -cosf(aim))) < 0.001f);
+            assert(fabsf(game.ball.velocity.y - sinf(aim)) < 0.001f);
+            aiming->velocity.y = 0;
+        }
+    }
+
+    // A pad pushed against a wall shoots straight
+    for (int edge = 0; edge < 2; edge++) {
+        game.power_ups.ball_held_by = 1;
+        game.power_ups.hold_remaining = 0.001f;
+        pad->position.y = edge == 0 ? 0 : GAME_HEIGHT - pad->height;
+        pad->velocity.y = edge == 0 ? -1.f : 1.f;
+        update_held_ball(&game, 1.f / 60.f);
+        assert(game.ball.velocity.x == 1.f && game.ball.velocity.y == 0);
+    }
+    pad->velocity.y = 0;
+    pad->position.y = (GAME_HEIGHT - pad->height) / 2.f;
+
+    // A speed boost used during the hold makes the shot use the speed boost
+    game.power_ups.ball_powered = false;
+    game.power_ups.player_one_remaining = 8;
+    game.power_ups.ball_held_by = 1;
+    game.power_ups.hold_remaining = 0.001f;
+    update_held_ball(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_powered && game.power_ups.ball_charged);
+    game.power_ups.player_one_remaining = 0;
+    game.power_ups.ball_powered = false;
+    game.ball.velocity = (vector_2d_t){1, 0};
+
     // A return clears the charged shot; the next hit of player one is normal
     aim_at_pad(&game, 1);
     scene_update(&game, 1.f / 60.f);
@@ -373,7 +412,7 @@ static void check_charge_blast(void) {
     scene_update(&game, 1.f / 60.f);
     assert(game.power_ups.ball_held_by == 0 && !game.power_ups.ball_charged);
 
-    // With speed, the charge speed wins; a serpent used during the hold makes the shot weave
+    // With speed, the faster speed boost wins; a serpent used during the hold makes the shot weave
     game.power_ups.player_one_charge_remaining = 8;
     game.power_ups.player_one_remaining = 8;
     aim_at_pad(&game, 0);
@@ -386,7 +425,7 @@ static void check_charge_blast(void) {
     x = game.ball.position.x;
     y = game.ball.position.y;
     scene_update(&game, 0.01f);
-    assert(fabsf(game.ball.position.x - (x + BALL_SPEED * POWER_UP_CHARGE_MULTIPLIER * 0.01f)) < 0.01f);
+    assert(fabsf(game.ball.position.x - (x + BALL_SPEED * POWER_UP_BALL_MULTIPLIER * 0.01f)) < 0.01f);
     assert(game.ball.position.y != y);
 
     // A point clears the charged shot
@@ -455,7 +494,7 @@ static void check_resets_and_scenes(void) {
         assert(game.player_one_score == 0 && game.player_two_score == 0);
         assert(!game.power_ups.pickup.active && !game.power_ups.ball_powered);
         assert(game.power_ups.player_one_remaining == 0 && game.power_ups.player_two_remaining == 0);
-        assert(game.power_ups.spawn_remaining >= 8 && game.power_ups.spawn_remaining <= 14);
+        assert(game.power_ups.spawn_remaining >= POWER_UP_SPAWN_MIN && game.power_ups.spawn_remaining <= POWER_UP_SPAWN_MAX);
     }
 }
 
