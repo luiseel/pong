@@ -1,0 +1,8 @@
+# The server image needs only these; see server/Dockerfile
+*
+!src/
+!third_party/
+!server/build.zig
+!server/build.zig.zon
+!server/src/
+**/.DS_Store

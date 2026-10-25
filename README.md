@@ -24,6 +24,22 @@ make
 - Press Escape during setup, the countdown, or on the winner or credits screen to return to the title screen.
 - Press Escape on the title screen to quit.
 
+## Online play
+
+Choose Online on the title screen. Create Room gives a 5-letter room code; tell it
+to your friend, who chooses Join Room and types it. The creator plays the left
+paddle. Matches run on the server at `pong.luiseel.dev` (UDP port 7777), so both
+players need internet access but no port forwarding. There is no pause online.
+
+- A "CONNECTION PROBLEM" hint shows when packets stop arriving for 2 seconds.
+- A player who quits, or whose connection stays silent for 10 seconds, forfeits:
+  the opponent sees "YOU WIN!" and "OPPONENT DISCONNECTED".
+- After a match, both players choose Rematch to play again.
+
+To use another server, set `PONG_SERVER=host[:port]`, for example
+`PONG_SERVER=localhost:7777 ./bin/pong`. To run your own server, see
+[server/README.md](server/README.md).
+
 ## Gamepads
 
 Use a Retroflag Classic USB Gamepad, Switch Pro controller (USB or paired Bluetooth),
