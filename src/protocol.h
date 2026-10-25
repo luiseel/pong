@@ -11,7 +11,9 @@
 #include "sim.h"
 
 #define NET_VERSION 3
-#define NET_DEFAULT_HOST "pong.luiseel.dev"
+#ifndef NET_DEFAULT_HOST
+#define NET_DEFAULT_HOST "localhost" // set with make NET_DEFAULT_HOST=host
+#endif
 #define NET_DEFAULT_PORT 7777
 #define NET_CODE_LENGTH 5
 #define NET_CODE_ALPHABET "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no 0/O and 1/I

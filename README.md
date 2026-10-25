@@ -28,8 +28,10 @@ make
 
 Choose Online on the title screen. Create Room gives a 5-letter room code; tell it
 to your friend, who chooses Join Room and types it. The creator plays the left
-paddle. Matches run on the server at `pong.luiseel.dev` (UDP port 7777), so both
-players need internet access but no port forwarding. There is no pause online.
+paddle. Matches run on a game server (UDP port 7777), so both players need
+internet access but no port forwarding. Build the client with
+`make NET_DEFAULT_HOST=your.server` (run `make clean` first), or set
+`PONG_SERVER=host[:port]`. There is no pause online.
 
 - A "CONNECTION PROBLEM" hint shows when packets stop arriving for 2 seconds.
 - A player who quits, or whose connection stays silent for 10 seconds, forfeits:

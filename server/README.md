@@ -75,16 +75,17 @@ and exposes 7777/udp. Flags go after the image name, for example
    public IP, or rent a small VPS, connect the home server to it with
    WireGuard, and forward UDP 7777 on the VPS to the home server over the
    tunnel (or run the container on the VPS).
-3. **DNS**: `pong.luiseel.dev` must be an A record to the home IP. It must
+3. **DNS**: the server's domain must be an A record to the home IP. It must
    not go through an HTTP proxy, because the game uses UDP.
 4. **Test from outside**: turn off Wi-Fi on a phone, share its mobile data
    as a hotspot, connect a laptop to it, and play an online match (or run
-   `PONG_SERVER=pong.luiseel.dev ./bin/net_bot create`). On the server,
+   `PONG_SERVER=your.server ./bin/net_bot create`). On the server,
    `docker logs pong-server` shows the room.
 
 ## Client
 
-The game connects to `pong.luiseel.dev:7777`. To use another server, set
+The game connects to `localhost:7777`, or to the host given by
+`make NET_DEFAULT_HOST=your.server` at build time. To use another server, set
 `PONG_SERVER=host[:port]`, for example
 `PONG_SERVER=192.168.1.20:7777 ./bin/pong`. The client and the server must
 have the same protocol version (`NET_VERSION` in `src/protocol.h`).
