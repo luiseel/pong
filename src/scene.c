@@ -2,11 +2,14 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <math.h>
+#include <string.h>
 
 #include "game.h"
 
-#define MENU_ITEM_COUNT 3
+#define MENU_ITEM_COUNT 4
+#define LOBBY_ITEM_COUNT 2
 #define DEBUG_ITEM_COUNT 4
 
 static SDL_Color const normal_color = { 235, 219, 178, 255 };
@@ -17,10 +20,24 @@ static struct {
     char const *label;
     int y;
 } const title_items[MENU_ITEM_COUNT] = {
-    { "1 PLAYER", 210 },
-    { "2 PLAYERS", 274 },
-    { "CREDITS", 338 },
+    { "1 PLAYER", 180 },
+    { "2 PLAYERS", 244 },
+    { "ONLINE", 308 },
+    { "CREDITS", 372 },
 };
+
+static struct {
+    char const *label;
+    int y;
+} const lobby_items[LOBBY_ITEM_COUNT] = {
+    { "CREATE ROOM", 210 },
+    { "JOIN ROOM", 274 },
+};
+
+// Player one's device is the only one that matters outside two-player mode
+static bool solo(game_t const *game) {
+    return game->mode != MODE_PVP;
+}
 
 // Indexed by power_up_kind_t
 static struct {
@@ -81,7 +98,19 @@ void change_scene(game_t *game, scene_id_t next_scene) {
 
     switch (next_scene) {
         case SCENE_TITLE:
+            net_disconnect(&game->net);
             game->selected_menu_item = 0;
+            break;
+        case SCENE_LOBBY:
+            net_disconnect(&game->net);
+            game->selected_menu_item = 0;
+            game->lobby_step = LOBBY_MENU;
+            memset(game->lobby_code, 0, sizeof(game->lobby_code));
+            break;
+        case SCENE_ONLINE:
+            reset_match(game);
+            netplay_start(&game->netplay, game->net.side, game->net.countdown_ticks);
+            game->send_accumulator = 0;
             break;
         case SCENE_SETUP:
             game->selected_menu_item = 0;
@@ -129,6 +158,9 @@ static void handle_title_action(game_t *game, input_action_t const *action) {
             } else if (game->selected_menu_item == 1) {
                 game->mode = MODE_PVP;
                 change_scene(game, SCENE_SETUP);
+            } else if (game->selected_menu_item == 2) {
+                game->mode = MODE_ONLINE;
+                change_scene(game, SCENE_LOBBY);
             } else {
                 change_scene(game, SCENE_CREDITS);
             }
@@ -144,23 +176,23 @@ static void handle_title_action(game_t *game, input_action_t const *action) {
 static void handle_play_action(game_t *game, input_action_t const *action) {
     switch (action->kind) {
         case INPUT_PAUSE:
-            change_scene(game, SCENE_PAUSE);
+            change_scene(game, game->mode == MODE_ONLINE ? SCENE_TITLE : SCENE_PAUSE);
             break;
         case INPUT_DEBUG:
             if (game->debug) change_scene(game, SCENE_DEBUG);
             break;
         case INPUT_SELECT_POWER:
-            select_power_up(game, action->player);
+            game->actions[action->player - 1] |= SIM_ACTION_SELECT;
             break;
         case INPUT_USE_POWER:
-            use_power_up(game, action->player);
+            game->actions[action->player - 1] |= SIM_ACTION_USE;
             break;
         default: break;
     }
 }
 
 static void resume_game(game_t *game) {
-    if (!input_ready(&game->input, game->mode == MODE_PVC)) return;
+    if (!input_ready(&game->input, solo(game))) return;
     if (game->paused_scene == SCENE_COUNTDOWN) {
         game->current_scene = SCENE_COUNTDOWN;
         input_reset_menu(&game->input);
@@ -180,8 +212,7 @@ static void handle_pause_action(game_t *game, input_action_t const *action) {
         case INPUT_RIGHT:
             if (game->selected_menu_item >= 2)
                 input_cycle_device(&game->input, game->selected_menu_item - 2,
-                    action->kind == INPUT_LEFT ? -1 : 1,
-                    game->mode == MODE_PVC);
+                    action->kind == INPUT_LEFT ? -1 : 1, solo(game));
             break;
         case INPUT_CONFIRM:
             if (game->selected_menu_item == 0) resume_game(game);
@@ -209,12 +240,12 @@ static void handle_debug_action(game_t *game, input_action_t const *action) {
             game->debug_target_right = !game->debug_target_right;
             break;
         case INPUT_CONFIRM:
-            debug_spawn_power_up(game, (power_up_kind_t)game->selected_menu_item,
+            debug_spawn_power_up(&game->sim, (power_up_kind_t)game->selected_menu_item,
                 game->debug_target_right ? 2 : 1);
             change_scene(game, SCENE_PLAY);
             break;
         case INPUT_DEBUG_GIVE:
-            debug_give_power_up(game, (power_up_kind_t)game->selected_menu_item,
+            debug_give_power_up(&game->sim, (power_up_kind_t)game->selected_menu_item,
                 game->debug_target_right ? 2 : 1);
             change_scene(game, SCENE_PLAY);
             break;
@@ -251,11 +282,11 @@ static void handle_setup_action(game_t *game, input_action_t const *action) {
                 if (game->target_score < 1) game->target_score = 1;
                 if (game->target_score > MATCH_MAX_TARGET) game->target_score = MATCH_MAX_TARGET;
             } else input_cycle_device(&game->input, game->selected_menu_item - 1, direction,
-                game->mode == MODE_PVC);
+                solo(game));
             break;
         }
         case INPUT_CONFIRM:
-            if (input_ready(&game->input, game->mode == MODE_PVC)) change_scene(game, SCENE_COUNTDOWN);
+            if (input_ready(&game->input, solo(game))) change_scene(game, SCENE_COUNTDOWN);
             break;
         case INPUT_BACK:
             change_scene(game, SCENE_TITLE);
@@ -264,7 +295,32 @@ static void handle_setup_action(game_t *game, input_action_t const *action) {
     }
 }
 
+// A rematch needs a finished match and an opponent who is still there
+static bool online_rematch_possible(game_t const *game) {
+    net_t const *net = &game->net;
+    return game->mode == MODE_ONLINE && net->status == NET_OVER && net->winner && !net->opponent_left;
+}
+
 static void handle_winner_action(game_t *game, input_action_t const *action) {
+    if (game->mode == MODE_ONLINE) {
+        bool rematch = online_rematch_possible(game);
+        switch (action->kind) {
+            case INPUT_UP:
+            case INPUT_DOWN:
+                if (rematch) game->selected_menu_item = 1 - game->selected_menu_item;
+                break;
+            case INPUT_CONFIRM:
+                if (rematch && game->selected_menu_item == 0) net_request_rematch(&game->net);
+                else change_scene(game, SCENE_TITLE);
+                break;
+            case INPUT_BACK:
+                change_scene(game, SCENE_TITLE);
+                break;
+            default:
+                break;
+        }
+        return;
+    }
     switch (action->kind) {
         case INPUT_UP:
         case INPUT_DOWN:
@@ -272,7 +328,7 @@ static void handle_winner_action(game_t *game, input_action_t const *action) {
             break;
         case INPUT_CONFIRM:
             change_scene(game, game->selected_menu_item == 0 ?
-                (input_ready(&game->input, game->mode == MODE_PVC) ? SCENE_COUNTDOWN : SCENE_SETUP) : SCENE_TITLE);
+                (input_ready(&game->input, solo(game)) ? SCENE_COUNTDOWN : SCENE_SETUP) : SCENE_TITLE);
             break;
         case INPUT_BACK:
             change_scene(game, SCENE_TITLE);
@@ -282,19 +338,74 @@ static void handle_winner_action(game_t *game, input_action_t const *action) {
     }
 }
 
+static void lobby_connect(game_t *game, int op) {
+    char host[NET_HOST_LENGTH];
+    uint16_t port;
+    net_server_address(host, sizeof(host), &port);
+    net_connect(&game->net, host, port, op, game->lobby_code);
+    game->lobby_step = LOBBY_CONNECTED;
+}
+
+static void handle_lobby_action(game_t *game, input_action_t const *action) {
+    if (game->lobby_step == LOBBY_CONNECTED) {
+        if (action->kind == INPUT_BACK) change_scene(game, SCENE_LOBBY);
+        return;
+    }
+    if (game->lobby_step == LOBBY_CODE) {
+        if (action->kind == INPUT_BACK) game->lobby_step = LOBBY_MENU;
+        if (action->kind == INPUT_CONFIRM && strlen(game->lobby_code) == NET_CODE_LENGTH) {
+            lobby_connect(game, NET_OP_JOIN);
+        }
+        return;
+    }
+    switch (action->kind) {
+        case INPUT_UP:
+        case INPUT_DOWN:
+            game->selected_menu_item = 1 - game->selected_menu_item;
+            break;
+        case INPUT_CONFIRM:
+            if (game->selected_menu_item == 0) lobby_connect(game, NET_OP_CREATE);
+            else game->lobby_step = LOBBY_CODE;
+            break;
+        case INPUT_BACK:
+            change_scene(game, SCENE_TITLE);
+            break;
+        default:
+            break;
+    }
+}
+
+// Keyboard text entry of the room code; true when the key was used
+static bool lobby_type_code(game_t *game, SDL_Keycode key) {
+    size_t length = strlen(game->lobby_code);
+    if (key == SDLK_BACKSPACE) {
+        if (length > 0) game->lobby_code[length - 1] = 0;
+        return true;
+    }
+    bool letter = key >= SDLK_a && key <= SDLK_z;
+    bool digit = key >= SDLK_0 && key <= SDLK_9;
+    if (!letter && !digit) return false;
+    if (length < NET_CODE_LENGTH) game->lobby_code[length] = (char)toupper((int)key);
+    return true;
+}
+
 void scene_handle_event(game_t *game, SDL_Event const *event) {
     input_device_event(&game->input, event);
-    if (!input_ready(&game->input, game->mode == MODE_PVC) &&
+    if (game->current_scene == SCENE_LOBBY && game->lobby_step == LOBBY_CODE &&
+        event->type == SDL_KEYDOWN && lobby_type_code(game, event->key.keysym.sym)) return;
+    if (!input_ready(&game->input, solo(game)) &&
         (game->current_scene == SCENE_PLAY || game->current_scene == SCENE_COUNTDOWN ||
          game->current_scene == SCENE_DEBUG)) {
-        game->player_one_pad.goal_velocity.y = game->player_one_pad.velocity.y = 0;
-        game->player_two_pad.goal_velocity.y = game->player_two_pad.velocity.y = 0;
+        game->sim.player_one_pad.goal_velocity.y = game->sim.player_one_pad.velocity.y = 0;
+        game->sim.player_two_pad.goal_velocity.y = game->sim.player_two_pad.velocity.y = 0;
         change_scene(game, SCENE_PAUSE);
         return;
     }
     input_action_t action;
-    if (input_translate(&game->input, event, game->current_scene == SCENE_PLAY,
-        game->mode == MODE_PVC, &action)) scene_handle_action(game, &action);
+    bool playing = game->current_scene == SCENE_PLAY || game->current_scene == SCENE_ONLINE;
+    if (input_translate(&game->input, event, playing, solo(game), &action)) {
+        scene_handle_action(game, &action);
+    }
 }
 
 void scene_handle_action(game_t *game, input_action_t const *action) {
@@ -314,10 +425,14 @@ void scene_handle_action(game_t *game, input_action_t const *action) {
             handle_winner_action(game, action);
             break;
         case SCENE_PLAY:
+        case SCENE_ONLINE:
             handle_play_action(game, action);
             break;
         case SCENE_PAUSE:
             handle_pause_action(game, action);
+            break;
+        case SCENE_LOBBY:
+            handle_lobby_action(game, action);
             break;
         case SCENE_CREDITS:
             handle_credits_action(game, action);
@@ -328,17 +443,63 @@ void scene_handle_action(game_t *game, input_action_t const *action) {
     }
 }
 
-static void hit_ball(game_t *game, int player_num) {
-    power_up_state_t *power = &game->power_ups;
-    power->ball_powered = (player_num == 1 ? power->player_one_remaining :
-        power->player_two_remaining) > 0;
-    set_ball_serpent(game, (player_num == 1 ? power->player_one_serpent_remaining :
-        power->player_two_serpent_remaining) > 0);
-    power->ball_charged = false;
-    catch_charged_ball(game, player_num);
+// A START (the first, or a rematch) takes the player to the match
+static void update_lobby(game_t *game) {
+    net_poll(&game->net, 0);
+    if (game->net.status == NET_PLAYING) change_scene(game, SCENE_ONLINE);
+}
+
+static double now_seconds(void) {
+    return (double)SDL_GetPerformanceCounter() / (double)SDL_GetPerformanceFrequency();
+}
+
+// Sends the local input once per server tick, and shows the match as netplay
+// sees it: the local pad predicted, the rest interpolated between snapshots
+static void update_online(game_t *game, float delta_time) {
+    net_t *net = &game->net;
+    netplay_t *netplay = &game->netplay;
+    double now = now_seconds();
+    if (netplay_in_countdown(netplay)) { // the pads wait for the serve, as in the local countdown
+        game->actions[0] = 0;
+        game->send_accumulator = 0;
+    } else {
+        sim_input_t input;
+        input.move = sim_move(input_movement(&game->input, 0, true));
+        input.actions = game->actions[0];
+        game->send_accumulator += delta_time;
+        if (game->send_accumulator > 0.1f) game->send_accumulator = 0.1f;
+        while (game->send_accumulator >= 1.f / NET_TICK_RATE) {
+            game->send_accumulator -= 1.f / NET_TICK_RATE;
+            uint16_t seq = net_send_input(net, input);
+            if (seq) netplay_input_sent(netplay, seq, input);
+            game->actions[0] = 0; // an action goes out once; a fast frame keeps it for the next send
+            input.actions = 0;
+        }
+    }
+    net_poll(net, 0);
+    net_snapshot_t snapshot;
+    while (net_take_snapshot(net, &snapshot)) netplay_receive(netplay, &snapshot, now);
+    netplay_update(netplay, now, delta_time);
+    netplay_view(netplay, &game->sim);
+    game->sim.events = netplay_take_events(netplay);
+    play_sounds(game);
+    // The view is a little behind: the last point is shown before the winner screen
+    if (net->status == NET_FAILED ||
+        (net->status == NET_OVER && (net->opponent_left || netplay_caught_up(netplay)))) {
+        change_scene(game, SCENE_WINNER);
+    }
 }
 
 void scene_update(game_t *game, float delta_time) {
+    if (game->current_scene == SCENE_LOBBY ||
+        (game->current_scene == SCENE_WINNER && game->mode == MODE_ONLINE)) {
+        update_lobby(game);
+        return;
+    }
+    if (game->current_scene == SCENE_ONLINE) {
+        update_online(game, delta_time);
+        return;
+    }
     if (game->current_scene == SCENE_COUNTDOWN) {
         game->countdown_remaining -= delta_time;
         if (game->countdown_remaining <= 0) {
@@ -351,66 +512,29 @@ void scene_update(game_t *game, float delta_time) {
         return;
     }
 
-    game->player_one_pad.goal_velocity.y = input_movement(&game->input, 0, game->mode == MODE_PVC);
+    sim_state_t *sim = &game->sim;
+    sim_input_t inputs[2] = {{0, 0}, {0, 0}};
+    inputs[0].move = sim_move(input_movement(&game->input, 0, game->mode == MODE_PVC));
+    inputs[0].actions = game->actions[0];
     if (game->mode == MODE_PVC) {
-        update_ai_pad(&game->ai, &game->player_two_pad, &game->ball,
-            &game->power_ups, delta_time);
-        int slot = choose_ai_power_up(&game->power_ups.player_two_inventory,
-            &game->player_two_pad, &game->ball, game->power_ups.player_two_remaining,
-            game->power_ups.player_two_grow_remaining,
-            game->power_ups.player_two_serpent_remaining,
-            game->power_ups.player_two_charge_remaining);
-        if (slot >= 0) {
-            game->power_ups.player_two_inventory.selected = slot;
-            use_power_up(game, 2);
-        }
+        inputs[1].move = sim_move(update_ai_pad(&game->ai, &sim->player_two_pad, &sim->ball,
+            &sim->power_ups, delta_time));
+        int slot = choose_ai_power_up(&sim->power_ups.player_two_inventory,
+            &sim->player_two_pad, &sim->ball, sim->power_ups.player_two_remaining,
+            sim->power_ups.player_two_grow_remaining,
+            sim->power_ups.player_two_serpent_remaining,
+            sim->power_ups.player_two_charge_remaining);
+        if (slot >= 0) inputs[1].actions = SIM_ACTION_PICK(slot) | SIM_ACTION_USE;
     } else {
-        game->player_two_pad.goal_velocity.y = input_movement(&game->input, 1, false);
+        inputs[1].move = sim_move(input_movement(&game->input, 1, false));
+        inputs[1].actions = game->actions[1];
     }
+    game->actions[0] = 0;
+    game->actions[1] = 0;
 
-    int old_one_score = game->player_one_score;
-    int old_two_score = game->player_two_score;
-    float remaining = delta_time;
-    while (remaining > 0) {
-        float step = remaining > 1.f / 240.f ? 1.f / 240.f : remaining;
-        remaining -= step;
-        update_player_one_pad(&game->player_one_pad, step);
-        update_player_two_pad(&game->player_two_pad, step);
-        update_power_ups(game, step);
-        if (game->power_ups.ball_held_by) {
-            update_held_ball(game, step);
-            continue;
-        }
-        // A speed boost is faster than a charged shot, so it wins
-        update_ball(&game->ball, step,
-            game->power_ups.ball_powered ? POWER_UP_BALL_MULTIPLIER :
-            game->power_ups.ball_charged ? POWER_UP_CHARGE_MULTIPLIER : 1.f);
-        weave_ball(game);
-        if (check_collisions(&game->ball, &game->player_one_pad)) {
-            hit_ball(game, 1);
-            if (game->power_ups.ball_held_by) continue;
-        }
-        if (check_collisions(&game->ball, &game->player_two_pad)) {
-            hit_ball(game, 2);
-            if (game->power_ups.ball_held_by) continue;
-        }
-        check_wall_collisions(&game->ball, &game->player_one_score, &game->player_two_score);
-        if (old_one_score != game->player_one_score || old_two_score != game->player_two_score) {
-            game->power_ups.ball_powered = false;
-            game->power_ups.ball_charged = false;
-            game->power_ups.ball_held_by = 0;
-            set_ball_serpent(game, false);
-            game->power_ups.trail_count = 0;
-            if (game->target_score > 0 &&
-                (game->player_one_score >= game->target_score ||
-                 game->player_two_score >= game->target_score)) {
-                change_scene(game, SCENE_WINNER);
-            }
-            break;
-        }
-    }
-    record_power_trail(game);
+    sim_step(sim, inputs, delta_time);
     play_sounds(game);
+    if (sim->winner) change_scene(game, SCENE_WINNER);
 }
 
 static void render_title(game_t *game) {
@@ -431,8 +555,8 @@ static void render_title(game_t *game) {
 }
 
 static void render_play(game_t *game) {
-    char *player_one_score = itos(game->player_one_score);
-    char *player_two_score = itos(game->player_two_score);
+    char *player_one_score = itos(game->sim.player_one_score);
+    char *player_two_score = itos(game->sim.player_two_score);
 
     if (player_one_score != NULL) {
         render_game_text(
@@ -453,11 +577,11 @@ static void render_play(game_t *game) {
         );
     }
 
-    render_entity(&game->ball, game->renderer);
-    render_entity(&game->player_one_pad, game->renderer);
-    render_entity(&game->player_two_pad, game->renderer);
+    render_entity(&game->sim.ball, game->renderer);
+    render_entity(&game->sim.player_one_pad, game->renderer);
+    render_entity(&game->sim.player_two_pad, game->renderer);
 
-    render_power_ups(game);
+    render_power_ups(game->renderer, &game->sim);
 
     free(player_one_score);
     free(player_two_score);
@@ -534,11 +658,11 @@ static void render_setup(game_t *game) {
     render_centered_text(game, game->hint_font, 430, "ESC / B: RETURN", normal_color);
 }
 
-static void render_countdown(game_t *game) {
+// The count, then "GO!" for the last half second
+static void render_countdown_banner(game_t *game, float remaining) {
     char count[8];
-    float remaining = game->countdown_remaining - 0.5f;
+    remaining -= 0.5f;
     snprintf(count, sizeof(count), "%d", (int)ceilf(remaining));
-    render_play(game);
     SDL_SetRenderDrawBlendMode(game->renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(game->renderer, 39, 39, 39, 220);
     SDL_Rect banner = {0, 170, GAME_WIDTH, 140};
@@ -547,15 +671,108 @@ static void render_countdown(game_t *game) {
     render_centered_text(game, game->font, 200, remaining > 0 ? count : "GO!", selected_color);
 }
 
+static void render_countdown(game_t *game) {
+    render_play(game);
+    render_countdown_banner(game, game->countdown_remaining);
+}
+
+static void render_online(game_t *game) {
+    render_play(game);
+    float remaining = netplay_countdown(&game->netplay);
+    if (remaining > 0) render_countdown_banner(game, remaining);
+    char const *problem = net_problem_text(&game->net);
+    if (problem) render_centered_text(game, game->hint_font, GAME_HEIGHT - 56, problem, selected_color);
+#ifdef PONG_DEBUG
+    char stats[96];
+    netplay_t const *netplay = &game->netplay;
+    snprintf(stats, sizeof(stats), "RTT %u MS  SNAPSHOTS %.0f/S  ERROR %.1f PX  MAX %.1f PX",
+        net_rtt(&game->net), netplay->snapshot_rate, netplay->last_error, netplay->max_error);
+    render_centered_text(game, game->hint_font, GAME_HEIGHT - 28, stats, normal_color);
+#endif
+}
+
+static void render_lobby(game_t *game) {
+    net_t const *net = &game->net;
+    char text[64];
+    render_centered_text(game, game->font, 30, "ONLINE", normal_color);
+    switch (game->lobby_step) {
+        case LOBBY_MENU:
+            for (int i = 0; i < LOBBY_ITEM_COUNT; i++) {
+                bool selected = game->selected_menu_item == i;
+                render_centered_text(game, game->menu_font, lobby_items[i].y, lobby_items[i].label,
+                    selected ? selected_color : normal_color);
+                if (selected) render_selection_indicator(game, lobby_items[i].y, lobby_items[i].label);
+            }
+            render_centered_text(game, game->hint_font, 430, "ENTER / A: OK  ESC / B: RETURN", normal_color);
+            break;
+        case LOBBY_CODE: {
+            char shown[NET_CODE_LENGTH * 2 + 1];
+            size_t length = strlen(game->lobby_code);
+            for (int i = 0; i < NET_CODE_LENGTH; i++) {
+                shown[2 * i] = (size_t)i < length ? game->lobby_code[i] : '_';
+                shown[2 * i + 1] = ' ';
+            }
+            shown[NET_CODE_LENGTH * 2 - 1] = 0;
+            render_centered_text(game, game->menu_font, 180, "ROOM CODE", normal_color);
+            render_centered_text(game, game->font, 240, shown, selected_color);
+            render_centered_text(game, game->hint_font, 390, "TYPE THE CODE  ENTER: JOIN", normal_color);
+            render_centered_text(game, game->hint_font, 430, "ESC / B: RETURN", normal_color);
+            break;
+        }
+        case LOBBY_CONNECTED:
+            if (net->status == NET_FAILED) {
+                render_centered_text(game, game->menu_font, 210, net_error_text(net->error), selected_color);
+            } else if (net->status == NET_WAITING) {
+                render_centered_text(game, game->menu_font, 160, "ROOM CODE", normal_color);
+                render_centered_text(game, game->font, 210, net->code, selected_color);
+                snprintf(text, sizeof(text), "YOU PLAY %s", net->side == 1 ? "LEFT" : "RIGHT");
+                render_centered_text(game, game->hint_font, 300, text, normal_color);
+                render_centered_text(game, game->menu_font, 340, "WAITING FOR OPPONENT", normal_color);
+            } else {
+                render_centered_text(game, game->menu_font, 210, "CONNECTING...", normal_color);
+            }
+            render_centered_text(game, game->hint_font, 430, "ESC / B: RETURN", normal_color);
+            break;
+    }
+}
+
 static void render_winner(game_t *game) {
     char score[32];
-    snprintf(score, sizeof(score), "%d - %d", game->player_one_score, game->player_two_score);
-    bool player_one_won = game->player_one_score >= game->target_score;
+    net_t const *net = &game->net;
+    bool player_one_won = game->sim.winner == 1;
     char const *headline = game->mode == MODE_PVC ?
         (player_one_won ? "YOU WIN!" : "CPU WINS!") :
         (player_one_won ? "PLAYER 1 WINS!" : "PLAYER 2 WINS!");
+    if (game->mode == MODE_ONLINE) {
+        if (net->status == NET_FAILED) headline = net_error_text(net->error);
+        else if (!net->winner) headline = "OPPONENT LEFT";
+        else headline = net->winner == net->side ? "YOU WIN!" : "YOU LOSE!";
+        if (net->winner) {
+            game->sim.player_one_score = net->player_one_score;
+            game->sim.player_two_score = net->player_two_score;
+        }
+    }
+    snprintf(score, sizeof(score), "%d - %d", game->sim.player_one_score, game->sim.player_two_score);
     render_centered_text(game, game->font, 30, headline, selected_color);
     render_centered_text(game, game->font, 130, score, normal_color);
+    if (game->mode == MODE_ONLINE && !online_rematch_possible(game)) {
+        if (net->winner && net->opponent_left) {
+            render_centered_text(game, game->menu_font, 250,
+                net->forfeit ? "OPPONENT DISCONNECTED" : "OPPONENT LEFT", normal_color);
+        }
+        render_centered_text(game, game->menu_font, 314, "MAIN MENU", selected_color);
+        render_selection_indicator(game, 314, "MAIN MENU");
+        return;
+    }
+    if (game->mode == MODE_ONLINE && net->rematch_requested) {
+        render_centered_text(game, game->menu_font, 250, "WAITING FOR OPPONENT",
+            game->selected_menu_item == 0 ? selected_color : normal_color);
+        render_centered_text(game, game->menu_font, 314, "MAIN MENU",
+            game->selected_menu_item == 1 ? selected_color : normal_color);
+        render_selection_indicator(game, game->selected_menu_item == 0 ? 250 : 314,
+            game->selected_menu_item == 0 ? "WAITING FOR OPPONENT" : "MAIN MENU");
+        return;
+    }
     render_centered_text(game, game->menu_font, 250, "REMATCH",
         game->selected_menu_item == 0 ? selected_color : normal_color);
     render_centered_text(game, game->menu_font, 314, "MAIN MENU",
@@ -598,6 +815,12 @@ void scene_render(game_t *game) {
             break;
         case SCENE_CREDITS:
             render_credits(game);
+            break;
+        case SCENE_LOBBY:
+            render_lobby(game);
+            break;
+        case SCENE_ONLINE:
+            render_online(game);
             break;
     }
 

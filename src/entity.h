@@ -1,7 +1,6 @@
 #ifndef ENTITY_H
 #define ENTITY_H
 
-#include <SDL2/SDL.h>
 #include <stdbool.h>
 #include "game_settings.h"
 #include "utils.h"
@@ -14,18 +13,15 @@ typedef struct {
     vector_2d_t goal_velocity;
     int width;
     int height;
-    bool has_collided;
 } entity_t;
 
 typedef entity_t ball_t;
 typedef entity_t pad_t;
 
 void update_ball(ball_t *, float, float);
-void reset_ball(ball_t *);
-void update_player_one_pad(pad_t *, float);
-void update_player_two_pad(pad_t *, float);
+void update_pad(pad_t *, float);
 bool check_collisions(ball_t *, pad_t *);
-void check_wall_collisions(ball_t *, int *, int *);
-void render_entity(entity_t *, SDL_Renderer *);
+bool bounce_off_walls(ball_t *);
+int check_goal(ball_t const *);
 
 #endif

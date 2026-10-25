@@ -1,5 +1,5 @@
-#include <SDL2/SDL.h>
 #include <math.h>
+#include <stdio.h>
 #include "vector.h"
 
 void add_vectors(vector_2d_t *dest, vector_2d_t left, vector_2d_t right) {
@@ -31,5 +31,5 @@ void multiply_vector_by_scalar(vector_2d_t *vector, float scalar) {
 }
 
 void print_vector(vector_2d_t vector) {
-    SDL_Log("vector_2d_t { x: %f, y: %f, length: %f }", vector.x, vector.y, calculate_vector_length(vector));
+    printf("vector_2d_t { x: %f, y: %f, length: %f }\n", vector.x, vector.y, calculate_vector_length(vector));
 }

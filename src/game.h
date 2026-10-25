@@ -4,15 +4,21 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_mixer.h>
-#include "entity.h"
+#include <stdint.h>
+#include "sim.h"
+#include "render.h"
 #include "input.h"
 #include "ai.h"
+#include "net.h"
+#include "netplay.h"
 #include "game_settings.h"
 #include "scene.h"
-#include "power_up.h"
 #include "utils.h"
 
-typedef enum { MODE_PVP, MODE_PVC } game_mode_t;
+typedef enum { MODE_PVP, MODE_PVC, MODE_ONLINE } game_mode_t;
+
+// Steps of the lobby scene before the connection takes over
+typedef enum { LOBBY_MENU, LOBBY_CODE, LOBBY_CONNECTED } lobby_step_t;
 
 struct game {
     input_t input;
@@ -24,19 +30,20 @@ struct game {
     int selected_menu_item;
     int target_score;
     float countdown_remaining;
-    power_up_state_t power_ups;
+    sim_state_t sim;
+    uint8_t actions[2];      // SIM_ACTION_* bits from events, for the next sim_step
     game_mode_t mode;
     ai_state_t ai;
+    net_t net;
+    netplay_t netplay;
+    lobby_step_t lobby_step;
+    char lobby_code[NET_CODE_LENGTH + 1]; // the code typed to join
+    float send_accumulator;               // time since the last input sent online
     bool debug;              // make debug: F1 opens the debug menu during play
     bool debug_target_right; // debug pickups drift toward player two
-    ball_t ball;
-    pad_t player_one_pad;
-    pad_t player_two_pad;
     TTF_Font *font;
     TTF_Font *menu_font;
     TTF_Font *hint_font;
-    int player_one_score;
-    int player_two_score; 
     Mix_Chunk *hit_sound;
 };
 

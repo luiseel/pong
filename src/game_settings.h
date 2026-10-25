@@ -20,6 +20,7 @@
 #define POWER_UP_SPAWN_MIN 4.f
 #define POWER_UP_SPAWN_MAX 8.f
 #define POWER_UP_SPEED 150.f
+#define POWER_UP_MAX_PICKUPS 8 // debug spawns past this are dropped
 #define POWER_UP_SIZE 12
 #define POWER_UP_DURATION 8.f
 #define POWER_UP_BALL_MULTIPLIER 2.5f

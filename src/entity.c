@@ -1,6 +1,5 @@
 #include "entity.h"
 #include <math.h>
-#include <stdlib.h>
 
 void update_ball(ball_t *ball, float delta_time, float multiplier) {
     ball->previous_position = ball->position;
@@ -11,60 +10,31 @@ void update_ball(ball_t *ball, float delta_time, float multiplier) {
     add_vectors(&ball->position, ball->position, velocity);
 }
 
-void reset_ball(ball_t *ball) {
-    ball->position.x = GAME_WIDTH / 2 - ball->width / 2;
-    ball->position.y = GAME_HEIGHT / 2 - ball->height / 2;
-    ball->velocity.x = (rand() % 2 == 0) ? 1.f : -1.f;
-    ball->velocity.y = (rand() % 2 == 0) ? 0.5f : -0.5f;
-    float length = sqrtf(ball->velocity.x * ball->velocity.x +
-                         ball->velocity.y * ball->velocity.y);
-    ball->velocity.x /= length;
-    ball->velocity.y /= length;
-}
-
-void check_wall_collisions(ball_t *ball, int *player_one_score, int *player_two_score) {
-    // Top/bottom wall collisions - preserve angle
+// Top/bottom walls keep the angle; true on a bounce
+bool bounce_off_walls(ball_t *ball) {
     if (ball->position.y < 0.f) {
         ball->position.y = 0.f;
         ball->velocity.y = -ball->velocity.y;
+        return true;
     }
     if (ball->position.y + ball->height > GAME_HEIGHT) {
         ball->position.y = GAME_HEIGHT - ball->height;
         ball->velocity.y = -ball->velocity.y;
+        return true;
     }
-
-    // Left/right wall collisions - scoring
-    if (ball->position.x < 0.f) {
-        (*player_two_score)++;
-        reset_ball(ball);
-    }
-    if (ball->position.x + ball->width > GAME_WIDTH) {
-        (*player_one_score)++;
-        reset_ball(ball);
-    }
+    return false;
 }
 
-void update_player_one_pad(pad_t *pad, float delta_time) {
-    pad->previous_position = pad->position;
-    float const max_speed = 400.f;
-    float const friction = 10.f;
-
-    // Smooth acceleration toward goal velocity
-    pad->velocity.y += (pad->goal_velocity.y - pad->velocity.y) * friction * delta_time;
-
-    // Apply velocity with clamped speed
-    float speed = pad->velocity.y * max_speed;
-    pad->position.y += speed * delta_time;
-
-    if (pad->position.y < 0.f) {
-        pad->position.y = 0.f;
-    }
-    if (pad->position.y + pad->height > GAME_HEIGHT) {
-        pad->position.y = GAME_HEIGHT - pad->height;
-    }
+// The player that scores when the ball is past a side wall, or 0
+int check_goal(ball_t const *ball) {
+    if (ball->position.x < 0.f) return 2;
+    if (ball->position.x + ball->width > GAME_WIDTH) return 1;
+    return 0;
 }
 
-void update_player_two_pad(pad_t *pad, float delta_time) {
+// Both pads move the same way: the velocity eases toward the goal, and the
+// position stays inside the field
+void update_pad(pad_t *pad, float delta_time) {
     pad->previous_position = pad->position;
     float const max_speed = 400.f;
     float const friction = 10.f;
@@ -115,7 +85,6 @@ static bool check_pad_edge_collision(ball_t *ball, pad_t *pad) {
     ball->velocity.y = clampf(2.f * pad_velocity - ball->velocity.y,
         -BALL_MAX_EDGE_SPEED_Y, BALL_MAX_EDGE_SPEED_Y);
     ball->position.y = pad->position.y + edge;
-    ball->has_collided = true;
     return true;
 }
 
@@ -154,16 +123,5 @@ bool check_collisions(ball_t *ball, pad_t *pad) {
     ball->velocity.x = left_pad ? cosf(angle) : -cosf(angle);
     ball->velocity.y = sinf(angle);
     ball->position.x = left_pad ? pad->position.x + pad->width : pad->position.x - ball->width;
-    ball->has_collided = true;
     return true;
-}
-
-void render_entity(entity_t *entity, SDL_Renderer *renderer) {
-    SDL_Rect dest;
-    dest.x = entity->position.x;
-    dest.y = entity->position.y;
-    dest.w = entity->width;
-    dest.h = entity->height;
-    SDL_SetRenderDrawColor(renderer, 235, 219, 178, 0);
-    SDL_RenderFillRect(renderer, &dest);
 }

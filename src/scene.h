@@ -15,7 +15,9 @@ typedef enum {
     SCENE_PAUSE,
     SCENE_WINNER,
     SCENE_CREDITS,
-    SCENE_DEBUG
+    SCENE_DEBUG,
+    SCENE_LOBBY,  // online: create or join a room
+    SCENE_ONLINE  // online match
 } scene_id_t;
 
 void change_scene(game_t *, scene_id_t);

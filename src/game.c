@@ -47,41 +47,16 @@ int init_game(game_t *game) {
 }
 
 void reset_match(game_t *game) {
-    game->ball.width = 12;
-    game->ball.height = 12;
-    game->ball.position.x = GAME_WIDTH / 2 - 6;
-    game->ball.position.y = GAME_HEIGHT / 2 - 6;
-    game->ball.velocity.x = 1;
-    game->ball.velocity.y = 1;
-    game->ball.has_collided = false;
-
-    game->player_one_pad.width = 10;
-    game->player_one_pad.height = PADDLE_HEIGHT;
-    game->player_one_pad.position.x = 15;
-    game->player_one_pad.position.y = GAME_HEIGHT / 2 - 25;
-    game->player_one_pad.velocity.x = 0;
-    game->player_one_pad.velocity.y = 0;
-    game->player_one_pad.goal_velocity.x = 0;
-    game->player_one_pad.goal_velocity.y = 0;
-
-    game->player_two_pad.width = 10;
-    game->player_two_pad.height = PADDLE_HEIGHT;
-    game->player_two_pad.position.x = GAME_WIDTH - 10 - 15;
-    game->player_two_pad.position.y = GAME_HEIGHT / 2 - 25;
-    game->player_two_pad.velocity.x = 0;
-    game->player_two_pad.velocity.y = 0;
-    game->player_two_pad.goal_velocity.x = 0;
-    game->player_two_pad.goal_velocity.y = 0;
-
-    game->player_one_score = 0;
-    game->player_two_score = 0;
-    reset_power_ups(game);
+    uint64_t seed = ((uint64_t)rand() << 32) ^ (uint64_t)rand();
+    sim_init(&game->sim, seed, game->target_score);
+    game->actions[0] = 0;
+    game->actions[1] = 0;
     reset_ai(&game->ai);
 }
 
 void terminate_game(game_t *game) {
+    net_disconnect(&game->net);
     input_close(&game->input);
-    clear_power_up_pickups(game);
     SDL_DestroyWindow(game->window);
     SDL_DestroyRenderer(game->renderer);
     Mix_FreeChunk(game->hit_sound);
@@ -155,7 +130,7 @@ int run_game(game_t *game) {
 
         input_action_t action;
         if (game->current_scene != SCENE_PLAY && game->current_scene != SCENE_COUNTDOWN &&
-            input_menu_repeat(&game->input, &action)) scene_handle_action(game, &action);
+            game->current_scene != SCENE_ONLINE && input_menu_repeat(&game->input, &action)) scene_handle_action(game, &action);
         scene_update(game, delta_time);
         scene_render(game);
 
@@ -257,9 +232,8 @@ void terminate_game_text(game_t *game) {
 }
 
 void play_sounds(game_t *game) {
-    if (game->ball.has_collided == 1) {
+    if (game->sim.events & (SIM_EVENT_PAD_HIT | SIM_EVENT_BLAST)) {
         // One channel, so hits close together cut each other off instead of stacking up
         Mix_PlayChannel(HIT_SOUND_CHANNEL, game->hit_sound, 0);
-        game->ball.has_collided = 0;
     }
 }

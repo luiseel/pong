@@ -39,13 +39,15 @@ static float clamp_target(pad_t const *pad, float target) {
     return fmaxf(half, fminf(GAME_HEIGHT - half, target));
 }
 
-void update_ai_pad(ai_state_t *ai, pad_t *pad, ball_t const *ball,
-                   power_up_state_t const *power, float delta_time) {
+// The goal velocity for the pad
+float update_ai_pad(ai_state_t *ai, pad_t const *pad, ball_t const *ball,
+                    power_up_state_t const *power, float delta_time) {
     // Only objects still in front of the pad count; anything past it is gone
     bool ball_incoming = is_ball_incoming(ball, pad);
     power_up_pickup_t const *target_pickup = NULL;
     float soonest_arrival = 0;
-    for (power_up_pickup_t const *pickup = &power->pickup; pickup; pickup = pickup->next) {
+    for (int i = 0; i < POWER_UP_MAX_PICKUPS; i++) {
+        power_up_pickup_t const *pickup = &power->pickups[i];
         if (!pickup->active || pickup->velocity.x <= 0.f || pickup->position.x >= pad->position.x)
             continue;
         float arrival = (pad->position.x - pickup->position.x) / pickup->velocity.x;
@@ -81,11 +83,8 @@ void update_ai_pad(ai_state_t *ai, pad_t *pad, ball_t const *ball,
     }
 
     float diff = ai->target_y - (pad->position.y + pad->height / 2.f);
-    if (fabsf(diff) < AI_DEAD_ZONE) {
-        pad->goal_velocity.y = 0.f;
-    } else {
-        pad->goal_velocity.y = diff > 0.f ? AI_MAX_SPEED : -AI_MAX_SPEED;
-    }
+    if (fabsf(diff) < AI_DEAD_ZONE) return 0.f;
+    return diff > 0.f ? AI_MAX_SPEED : -AI_MAX_SPEED;
 }
 
 // Slot to use now, or -1: grow at once, the others when the ball comes back

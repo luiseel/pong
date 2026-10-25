@@ -3,7 +3,7 @@
 
 #include "entity.h"
 
-struct game;
+struct sim_state;
 
 typedef enum { POWER_UP_SPEED_BOOST, POWER_UP_GROW, POWER_UP_SERPENT, POWER_UP_CHARGE } power_up_kind_t;
 
@@ -13,17 +13,16 @@ typedef struct {
     int selected;
 } power_up_inventory_t;
 
-typedef struct power_up_pickup {
+typedef struct {
     power_up_kind_t kind;
     bool active;
     vector_2d_t position;
     vector_2d_t velocity;
     float animation_time;
-    struct power_up_pickup *next;
 } power_up_pickup_t;
 
 typedef struct {
-    power_up_pickup_t pickup;
+    power_up_pickup_t pickups[POWER_UP_MAX_PICKUPS]; // inactive ones are free slots
     bool next_grow_left;
     float player_one_grow_remaining;
     float player_two_grow_remaining;
@@ -49,18 +48,17 @@ typedef struct {
     int trail_count;
 } power_up_state_t;
 
-void reset_power_ups(struct game *);
-void clear_power_up_pickups(struct game *);
-void update_power_ups(struct game *, float);
-void debug_spawn_power_up(struct game *, power_up_kind_t, int);
-void debug_give_power_up(struct game *, power_up_kind_t, int);
-void select_power_up(struct game *, int);
-void use_power_up(struct game *, int);
-void set_ball_serpent(struct game *, bool);
-void weave_ball(struct game *);
-bool catch_charged_ball(struct game *, int);
-void update_held_ball(struct game *, float);
-void record_power_trail(struct game *);
-void render_power_ups(struct game *);
+void reset_power_ups(struct sim_state *);
+void clear_power_up_pickups(struct sim_state *);
+void update_power_ups(struct sim_state *, float);
+void debug_spawn_power_up(struct sim_state *, power_up_kind_t, int);
+void debug_give_power_up(struct sim_state *, power_up_kind_t, int);
+void select_power_up(struct sim_state *, int);
+void use_power_up(struct sim_state *, int);
+void set_ball_serpent(struct sim_state *, bool);
+void weave_ball(struct sim_state *);
+bool catch_charged_ball(struct sim_state *, int);
+void update_held_ball(struct sim_state *, float);
+void record_power_trail(struct sim_state *);
 
 #endif

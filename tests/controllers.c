@@ -110,27 +110,29 @@ int main(void) {
     assert(SDL_JoystickSetVirtualButton(two, SDL_CONTROLLER_BUTTON_DPAD_DOWN, 1) == 0);
     pump(&game);
     scene_update(&game, 0.01f);
-    assert(game.player_one_pad.goal_velocity.y == 0);
-    assert(game.player_two_pad.goal_velocity.y == 1);
+    assert(game.sim.player_one_pad.goal_velocity.y == 0);
+    assert(game.sim.player_two_pad.goal_velocity.y == 1);
     assert(SDL_JoystickSetVirtualAxis(one, SDL_CONTROLLER_AXIS_LEFTY, -32768) == 0);
     pump(&game);
     scene_update(&game, 0.01f);
-    assert(game.player_one_pad.goal_velocity.y == -1);
+    assert(game.sim.player_one_pad.goal_velocity.y == -1);
     assert(SDL_JoystickSetVirtualAxis(one, SDL_CONTROLLER_AXIS_LEFTY, 19660) == 0);
     pump(&game);
     scene_update(&game, 0.01f);
-    assert(fabsf(game.player_one_pad.goal_velocity.y - 0.5f) < 0.001f);
-    debug_give_power_up(&game, POWER_UP_GROW, 1);
+    assert(fabsf(game.sim.player_one_pad.goal_velocity.y - 0.5f) < 0.005f); // 1/127 steps
+    debug_give_power_up(&game.sim, POWER_UP_GROW, 1);
     key(&game, SDLK_d);
-    assert(game.power_ups.player_one_grow_remaining == 0);
+    scene_update(&game, 0);
+    assert(game.sim.power_ups.player_one_grow_remaining == 0);
     button(&game, one, SDL_CONTROLLER_BUTTON_A);
-    assert(game.power_ups.player_one_grow_remaining > 0);
-    assert(game.power_ups.player_two_grow_remaining == 0);
+    scene_update(&game, 0);
+    assert(game.sim.power_ups.player_one_grow_remaining > 0);
+    assert(game.sim.power_ups.player_two_grow_remaining == 0);
     button(&game, two, SDL_CONTROLLER_BUTTON_START);
     assert(game.current_scene == SCENE_PAUSE);
-    float y = game.player_two_pad.position.y;
+    float y = game.sim.player_two_pad.position.y;
     scene_update(&game, 1);
-    assert(game.player_two_pad.position.y == y);
+    assert(game.sim.player_two_pad.position.y == y);
     button(&game, two, SDL_CONTROLLER_BUTTON_START);
     assert(game.current_scene == SCENE_PLAY);
 
@@ -158,12 +160,14 @@ int main(void) {
     key(&game, SDLK_LEFT);
     assert(game.input.player_device[0] == 0);
     button(&game, two, SDL_CONTROLLER_BUTTON_START);
-    debug_give_power_up(&game, POWER_UP_GROW, 1);
+    debug_give_power_up(&game.sim, POWER_UP_GROW, 1);
     key(&game, SDLK_d);
-    assert(game.power_ups.player_one_grow_remaining > 0);
-    debug_give_power_up(&game, POWER_UP_GROW, 2);
+    scene_update(&game, 0);
+    assert(game.sim.power_ups.player_one_grow_remaining > 0);
+    debug_give_power_up(&game.sim, POWER_UP_GROW, 2);
     button(&game, two, SDL_CONTROLLER_BUTTON_A);
-    assert(game.power_ups.player_two_grow_remaining > 0);
+    scene_update(&game, 0);
+    assert(game.sim.power_ups.player_two_grow_remaining > 0);
 
     int assigned = game.input.player_device[1];
     change_scene(&game, SCENE_WINNER);
@@ -193,7 +197,6 @@ int main(void) {
     assert(game.current_scene == SCENE_PLAY && game.input.player_device[1] == 0);
 
     input_close(&game.input);
-    clear_power_up_pickups(&game);
     Mix_CloseAudio();
     SDL_Quit();
     puts("Controller checks passed");
