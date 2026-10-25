@@ -380,6 +380,28 @@ static void check_charge_blast(void) {
             aiming->velocity.y = 0;
         }
     }
+
+    // A pad pushed against a wall shoots straight
+    for (int edge = 0; edge < 2; edge++) {
+        game.power_ups.ball_held_by = 1;
+        game.power_ups.hold_remaining = 0.001f;
+        pad->position.y = edge == 0 ? 0 : GAME_HEIGHT - pad->height;
+        pad->velocity.y = edge == 0 ? -1.f : 1.f;
+        update_held_ball(&game, 1.f / 60.f);
+        assert(game.ball.velocity.x == 1.f && game.ball.velocity.y == 0);
+    }
+    pad->velocity.y = 0;
+    pad->position.y = (GAME_HEIGHT - pad->height) / 2.f;
+
+    // A speed boost used during the hold makes the shot use the speed boost
+    game.power_ups.ball_powered = false;
+    game.power_ups.player_one_remaining = 8;
+    game.power_ups.ball_held_by = 1;
+    game.power_ups.hold_remaining = 0.001f;
+    update_held_ball(&game, 1.f / 60.f);
+    assert(game.power_ups.ball_powered && game.power_ups.ball_charged);
+    game.power_ups.player_one_remaining = 0;
+    game.power_ups.ball_powered = false;
     game.ball.velocity = (vector_2d_t){1, 0};
 
     // A return clears the charged shot; the next hit of player one is normal

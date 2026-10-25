@@ -264,10 +264,18 @@ void update_held_ball(game_t *game, float delta_time) {
     ball->previous_position = ball->position;
     power->hold_remaining -= delta_time;
     if (power->hold_remaining > 0) return;
-    // A serpent used during the hold still makes the shot weave
+    // A speed or serpent used during the hold still changes the shot
+    power->ball_powered = (power->ball_held_by == 1 ? power->player_one_remaining :
+        power->player_two_remaining) > 0;
     set_ball_serpent(game, (power->ball_held_by == 1 ? power->player_one_serpent_remaining :
         power->player_two_serpent_remaining) > 0);
-    float aim = fmaxf(-1.f, fminf(pad->velocity.y, 1.f)) * POWER_UP_CHARGE_AIM_DEGREES * (float)M_PI / 180.f;
+    // A pad pushed against a wall does not move, so it shoots straight
+    float pad_velocity = fmaxf(-1.f, fminf(pad->velocity.y, 1.f));
+    if ((pad->position.y <= 0 && pad_velocity < 0) ||
+        (pad->position.y + pad->height >= GAME_HEIGHT && pad_velocity > 0)) {
+        pad_velocity = 0;
+    }
+    float aim = pad_velocity * POWER_UP_CHARGE_AIM_DEGREES * (float)M_PI / 180.f;
     ball->velocity = (vector_2d_t){power->ball_held_by == 1 ? cosf(aim) : -cosf(aim), sinf(aim)};
     power->ball_held_by = 0;
     power->hold_remaining = 0;
