@@ -75,15 +75,8 @@ and exposes 7777/udp. Flags go after the image name, for example
    public IP, or rent a small VPS, connect the home server to it with
    WireGuard, and forward UDP 7777 on the VPS to the home server over the
    tunnel (or run the container on the VPS).
-3. **DNS**: `pong.luiseel.dev` must be an A record that is **DNS only**
-   (grey cloud). The Cloudflare proxy does not carry this UDP traffic.
-   A home IP changes, so run `deploy/ddns-cloudflare.sh` every 5 minutes:
-
-   ```sh
-   */5 * * * * CF_API_TOKEN=... CF_ZONE_ID=... /opt/pong/ddns-cloudflare.sh
-   ```
-
-   The token needs only Zone:DNS:Edit on the zone.
+3. **DNS**: `pong.luiseel.dev` must be an A record to the home IP. It must
+   not go through an HTTP proxy, because the game uses UDP.
 4. **Test from outside**: turn off Wi-Fi on a phone, share its mobile data
    as a hotspot, connect a laptop to it, and play an online match (or run
    `PONG_SERVER=pong.luiseel.dev ./bin/net_bot create`). On the server,
