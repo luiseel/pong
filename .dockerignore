@@ -1,6 +1,6 @@
 # The server image needs only these; see server/Dockerfile
 *
-!src/
+!shared/
 !third_party/
 !server/build.zig
 !server/build.zig.zon

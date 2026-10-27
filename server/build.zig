@@ -1,7 +1,7 @@
 const std = @import("std");
 
 // The match simulation shared with the client; the server is the authority
-const sim_sources = [_][]const u8{ "src/sim.c", "src/entity.c", "src/power_up.c", "src/vector.c" };
+const sim_sources = [_][]const u8{ "sim.c", "entity.c", "power_up.c", "vector.c" };
 const enet_sources = [_][]const u8{
     "callbacks.c", "compress.c", "host.c", "list.c", "packet.c", "peer.c", "protocol.c", "unix.c", "win32.c",
 };
@@ -22,7 +22,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    translate.addIncludePath(b.path("../src"));
+    translate.addIncludePath(b.path("../shared"));
     translate.addIncludePath(b.path("../third_party/enet/include"));
 
     const exe = b.addExecutable(.{
@@ -35,10 +35,10 @@ pub fn build(b: *std.Build) void {
             .imports = &.{.{ .name = "c", .module = translate.createModule() }},
         }),
     });
-    exe.root_module.addIncludePath(b.path("../src"));
+    exe.root_module.addIncludePath(b.path("../shared"));
     exe.root_module.addIncludePath(b.path("../third_party/enet/include"));
     exe.root_module.addCSourceFiles(.{
-        .root = b.path(".."),
+        .root = b.path("../shared"),
         .files = &sim_sources,
         .flags = &.{ "-std=c99", "-Wall", "-Wextra" },
     });

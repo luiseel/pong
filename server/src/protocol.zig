@@ -1,4 +1,4 @@
-//! Packets in and out: the structs from src/protocol.h go on the wire as they
+//! Packets in and out: the structs from shared/protocol.h go on the wire as they
 //! are in memory (little-endian, same layout on both sides). Nothing from a
 //! client is trusted: decode checks the channel, the size and the fields.
 const std = @import("std");

@@ -31,7 +31,7 @@ int init_game(game_t *game) {
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096) != 0) {
         return 1;    
     }
-    game->hit_sound = Mix_LoadWAV("src/assets/hit.wav");
+    game->hit_sound = Mix_LoadWAV("assets/hit.wav");
     if (game->hit_sound == NULL) {
         return 1;
     }
@@ -171,17 +171,17 @@ int init_game_text(game_t *game) {
     if (TTF_Init() != 0) {
         return 1;
     }
-    game->font = TTF_OpenFont("src/fonts/just-my-type.ttf", GAME_FONT_SIZE);
+    game->font = TTF_OpenFont("assets/fonts/just-my-type.ttf", GAME_FONT_SIZE);
     if (game->font == NULL) {
         TTF_Quit();
         return 1;
     }
-    game->menu_font = TTF_OpenFont("src/fonts/just-my-type.ttf", MENU_FONT_SIZE);
+    game->menu_font = TTF_OpenFont("assets/fonts/just-my-type.ttf", MENU_FONT_SIZE);
     if (game->menu_font == NULL) {
         terminate_game_text(game);
         return 1;
     }
-    game->hint_font = TTF_OpenFont("src/fonts/just-my-type.ttf", HINT_FONT_SIZE);
+    game->hint_font = TTF_OpenFont("assets/fonts/just-my-type.ttf", HINT_FONT_SIZE);
     if (game->hint_font == NULL) {
         terminate_game_text(game);
         return 1;

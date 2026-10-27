@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # The pong server as a static musl binary in an empty image. Build it from
-# the repo root, since the server compiles ../src and ../third_party:
+# the repo root, since the server compiles ../shared and ../third_party:
 #
 #   docker build -f server/Dockerfile -t pong-server .
 #
@@ -28,7 +28,7 @@ RUN set -eu; \
     rm /tmp/zig.tar.xz
 
 WORKDIR /pong
-COPY src src
+COPY shared shared
 COPY third_party third_party
 COPY server/build.zig server/build.zig.zon server/
 COPY server/src server/src

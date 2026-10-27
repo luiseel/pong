@@ -49,7 +49,7 @@ At most 16 peers come from one IP address.
 
 ## Docker
 
-The Dockerfile is in `server/`, but the build needs `src/` and
+The Dockerfile is in `server/`, but the build needs `shared/` and
 `third_party/`, so build from the repo root:
 
 ```sh
@@ -88,4 +88,4 @@ The game connects to `localhost:7777`, or to the host given by
 `make NET_DEFAULT_HOST=your.server` at build time. To use another server, set
 `PONG_SERVER=host[:port]`, for example
 `PONG_SERVER=192.168.1.20:7777 ./bin/pong`. The client and the server must
-have the same protocol version (`NET_VERSION` in `src/protocol.h`).
+have the same protocol version (`NET_VERSION` in `shared/protocol.h`).
