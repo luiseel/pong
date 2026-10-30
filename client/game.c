@@ -1,0 +1,239 @@
+#include "game.h"
+#include <stdlib.h>
+#include <time.h>
+
+int init_game(game_t *game) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) {
+        return 1;
+    }
+
+    input_init(&game->input);
+
+    game->window = SDL_CreateWindow(
+        GAME_TITLE,
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        GAME_WIDTH,
+        GAME_HEIGHT,
+        SDL_WINDOW_SHOWN
+    );
+    if (game->window == NULL) {
+        return 1;
+    }
+    game->renderer = SDL_CreateRenderer(game->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (game->renderer == NULL) {
+        return 1;
+    }
+    if (SDL_RenderSetLogicalSize(game->renderer, GAME_WIDTH, GAME_HEIGHT) != 0) {
+        return 1;
+    }
+
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096) != 0) {
+        return 1;    
+    }
+    game->hit_sound = Mix_LoadWAV("assets/hit.wav");
+    if (game->hit_sound == NULL) {
+        return 1;
+    }
+
+    game->target_score = MATCH_DEFAULT_TARGET;
+    game->mode = MODE_PVP;
+    srand((unsigned int)time(NULL));
+    reset_match(game);
+    game->current_scene = SCENE_TITLE;
+    game->selected_menu_item = 0;
+    game->is_running = TRUE;
+    return 0;
+}
+
+void reset_match(game_t *game) {
+    uint64_t seed = ((uint64_t)rand() << 32) ^ (uint64_t)rand();
+    sim_init(&game->sim, seed, game->target_score);
+    game->actions[0] = 0;
+    game->actions[1] = 0;
+    reset_ai(&game->ai);
+}
+
+void terminate_game(game_t *game) {
+    net_disconnect(&game->net);
+    input_close(&game->input);
+    SDL_DestroyWindow(game->window);
+    SDL_DestroyRenderer(game->renderer);
+    Mix_FreeChunk(game->hit_sound);
+    Mix_CloseAudio();
+    SDL_Quit();
+}
+
+int run_game(game_t *game) {
+    const Uint64 target_fps = 60;
+    const float max_delta_time = 0.1f;
+    Uint64 frequency = SDL_GetPerformanceFrequency();
+    Uint64 last_time, current_time;
+    float delta_time;
+#ifdef PONG_LOG_FPS
+    Uint64 fps_last_time;
+    int frame_count = 0;
+#endif
+    SDL_bool has_vsync = SDL_FALSE;
+    SDL_RendererInfo info;
+
+    if (init_game(game) != 0) {
+        SDL_Log("Couldn't initialize game: %s", SDL_GetError());
+        return 1;
+    }
+    if (init_game_text(game) != 0) {
+        SDL_Log("Couldn't initialize game text: %s", TTF_GetError());
+        return 1;
+    }
+    change_scene(game, SCENE_TITLE);
+
+    if (SDL_GetRendererInfo(game->renderer, &info) == 0 &&
+        (info.flags & SDL_RENDERER_PRESENTVSYNC)) {
+        has_vsync = SDL_TRUE;
+    }
+    const Uint64 target_frame_counts = frequency / target_fps;
+
+    current_time = SDL_GetPerformanceCounter();
+    Uint64 next_frame_time = current_time + target_frame_counts;
+#ifdef PONG_LOG_FPS
+    fps_last_time = current_time;
+#endif
+
+    while (game->is_running) {
+        last_time = current_time;
+        current_time = SDL_GetPerformanceCounter();
+        delta_time = (float)((double)(current_time - last_time) / (double)frequency);
+        if (delta_time > max_delta_time) {
+            delta_time = max_delta_time;
+        }
+
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                game->is_running = FALSE;
+            } else if (event.type == SDL_KEYDOWN &&
+                       (event.key.keysym.sym == SDLK_F11 ||
+                        (event.key.keysym.sym == SDLK_RETURN &&
+                         (event.key.keysym.mod & KMOD_ALT)))) {
+                if (!event.key.repeat) {
+                    Uint32 flags = SDL_GetWindowFlags(game->window);
+                    Uint32 fullscreen = (flags & SDL_WINDOW_FULLSCREEN)
+                        ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP;
+                    if (SDL_SetWindowFullscreen(game->window, fullscreen) != 0) {
+                        SDL_Log("Couldn't toggle fullscreen: %s", SDL_GetError());
+                    }
+                }
+            } else {
+                scene_handle_event(game, &event);
+            }
+        }
+
+        input_action_t action;
+        if (game->current_scene != SCENE_PLAY && game->current_scene != SCENE_COUNTDOWN &&
+            game->current_scene != SCENE_ONLINE && input_menu_repeat(&game->input, &action)) scene_handle_action(game, &action);
+        scene_update(game, delta_time);
+        scene_render(game);
+
+#ifdef PONG_LOG_FPS
+        Uint64 fps_now = SDL_GetPerformanceCounter();
+        frame_count++;
+        Uint64 fps_elapsed = fps_now - fps_last_time;
+        if (fps_elapsed >= frequency) {
+            double fps = (double)frame_count * (double)frequency / (double)fps_elapsed;
+            SDL_Log("FPS: %.2f", fps);
+            frame_count = 0;
+            fps_last_time = fps_now;
+        }
+#endif
+
+        if (!has_vsync) {
+            /* Sleep to a fixed schedule so sleep overshoot does not accumulate. */
+            Uint64 now = SDL_GetPerformanceCounter();
+            if (now < next_frame_time) {
+                Uint64 remaining = next_frame_time - now;
+                Uint32 delay_ms = (Uint32)((remaining * 1000 + frequency - 1) / frequency);
+                SDL_Delay(delay_ms);
+            }
+            next_frame_time += target_frame_counts;
+            if (next_frame_time < now) {
+                /* More than a frame behind: restart the schedule from now. */
+                next_frame_time = now + target_frame_counts;
+            }
+        }
+    }
+
+    terminate_game_text(game);
+    terminate_game(game);
+    return 0;
+}
+
+int init_game_text(game_t *game) {
+    if (TTF_Init() != 0) {
+        return 1;
+    }
+    game->font = TTF_OpenFont("assets/fonts/just-my-type.ttf", GAME_FONT_SIZE);
+    if (game->font == NULL) {
+        TTF_Quit();
+        return 1;
+    }
+    game->menu_font = TTF_OpenFont("assets/fonts/just-my-type.ttf", MENU_FONT_SIZE);
+    if (game->menu_font == NULL) {
+        terminate_game_text(game);
+        return 1;
+    }
+    game->hint_font = TTF_OpenFont("assets/fonts/just-my-type.ttf", HINT_FONT_SIZE);
+    if (game->hint_font == NULL) {
+        terminate_game_text(game);
+        return 1;
+    }
+    return 0;
+}
+
+void render_game_text(game_t *game, TTF_Font *font, int x, int y, char const *text, SDL_Color color) {
+    int font_width = 0;
+    int font_height = 0;
+
+    SDL_Surface *surface = TTF_RenderText_Solid(font, text, color);
+    if (surface == NULL) {
+        return;
+    }
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(game->renderer, surface);
+    if (texture == NULL) {
+        SDL_FreeSurface(surface);
+        return;
+    }
+    SDL_QueryTexture(texture, NULL, NULL, &font_width, &font_height);
+    SDL_Rect dest = { x, y, font_width, font_height };
+
+    SDL_RenderCopy(game->renderer, texture, NULL, &dest);
+    SDL_DestroyTexture(texture);
+    SDL_FreeSurface(surface);
+}
+
+void render_centered_text(game_t *game, TTF_Font *font, int y, char const *text, SDL_Color color) {
+    int width;
+    int height;
+
+    if (TTF_SizeText(font, text, &width, &height) != 0) {
+        return;
+    }
+
+    render_game_text(game, font, (GAME_WIDTH - width) / 2, y, text, color);
+}
+
+void terminate_game_text(game_t *game) {
+    if (game->hint_font != NULL) TTF_CloseFont(game->hint_font);
+    if (game->menu_font != NULL) TTF_CloseFont(game->menu_font);
+    if (game->font != NULL) TTF_CloseFont(game->font);
+    game->hint_font = NULL;
+    game->menu_font = NULL;
+    game->font = NULL;
+    TTF_Quit();
+}
+
+void play_sounds(game_t *game) {
+    if (game->sim.events & (SIM_EVENT_PAD_HIT | SIM_EVENT_BLAST)) {
+        // One channel, so hits close together cut each other off instead of stacking up
+        Mix_PlayChannel(HIT_SOUND_CHANNEL, game->hit_sound, 0);
+    }
+}

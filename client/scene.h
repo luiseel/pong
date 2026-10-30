@@ -1,0 +1,29 @@
+#ifndef SCENE_H
+#define SCENE_H
+
+#include <SDL2/SDL.h>
+#include "input.h"
+
+struct game;
+typedef struct game game_t;
+
+typedef enum {
+    SCENE_TITLE,
+    SCENE_SETUP,
+    SCENE_COUNTDOWN,
+    SCENE_PLAY,
+    SCENE_PAUSE,
+    SCENE_WINNER,
+    SCENE_CREDITS,
+    SCENE_DEBUG,
+    SCENE_LOBBY,  // online: create or join a room
+    SCENE_ONLINE  // online match
+} scene_id_t;
+
+void change_scene(game_t *, scene_id_t);
+void scene_handle_event(game_t *, SDL_Event const *);
+void scene_handle_action(game_t *, input_action_t const *);
+void scene_update(game_t *, float);
+void scene_render(game_t *);
+
+#endif

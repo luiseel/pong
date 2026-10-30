@@ -1,0 +1,12 @@
+.{
+    .name = .pong_server,
+    .version = "0.1.0",
+    .fingerprint = 0xc5f4a27d3fbbc99f, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.17.0",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
