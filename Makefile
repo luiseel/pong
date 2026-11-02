@@ -6,7 +6,7 @@ TARGET = pong
 SHARED_DIR = shared
 CLIENT_DIR = client
 BIN_DIR = bin
-SDL2_FLAGS = `sdl2-config --cflags --libs` `pkg-config --cflags --libs sdl2_mixer` `pkg-config --cflags --libs sdl2_ttf`
+SDL2_FLAGS = `sdl2-config --cflags --libs` `pkg-config --cflags --libs SDL2_mixer` `pkg-config --cflags --libs SDL2_ttf`
 
 SRCS = $(wildcard $(SHARED_DIR)/*.c) $(wildcard $(CLIENT_DIR)/*.c)
 OBJS = $(patsubst %.c, $(BIN_DIR)/%.o, $(SRCS))
@@ -21,7 +21,7 @@ NETPLAY_SRCS = $(SIM_SRCS) $(SHARED_DIR)/netplay.c
 ENET_DIR = third_party/enet
 ENET_SRCS = $(wildcard $(ENET_DIR)/*.c)
 ENET_OBJS = $(patsubst $(ENET_DIR)/%.c, $(BIN_DIR)/enet/%.o, $(ENET_SRCS))
-ENET_FLAGS = -I$(ENET_DIR)/include -DHAS_FCNTL -DHAS_POLL -DHAS_GETADDRINFO -DHAS_GETNAMEINFO \
+ENET_FLAGS = -D_DEFAULT_SOURCE -I$(ENET_DIR)/include -DHAS_FCNTL -DHAS_POLL -DHAS_GETADDRINFO -DHAS_GETNAMEINFO \
 	-DHAS_INET_PTON -DHAS_INET_NTOP -DHAS_MSGHDR_FLAGS -DHAS_SOCKLEN_T
 CFLAGS += -I$(SHARED_DIR) -I$(ENET_DIR)/include
 CLIENT_FLAGS = -I$(CLIENT_DIR) $(SDL2_FLAGS)
